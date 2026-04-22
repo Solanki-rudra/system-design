@@ -1,11 +1,24 @@
 # Practice Mock Interviews
 
-This folder is your sandbox for raw, unpolished system design practice. The goal is to simulate an actual whiteboard interview.
+This folder is your dedicated sandbox for raw, unpolished system design practice. The goal is not to write a perfect, textbook architecture document, but to simulate the exact pressure, pacing, and structure of an actual whiteboard interview.
 
-## How to use this folder:
+## 🚀 How to use this folder
 
-1. **Pick a prompt:** Choose a system to design (e.g., "Design Twitter", "Design a Rate Limiter", "Design WhatsApp").
-2. **Copy the template:** Duplicate `template.md` and name it after your prompt (e.g., `twitter.md`).
-3. **Time yourself:** Set a timer for 40-45 minutes. This is crucial for interview prep.
-4. **Write everything down:** Don't just think it, write it. Use the template to guide your thought process from requirements to deep dives.
-5. **Review and Reflect:** After the timer goes off, spend 10-15 minutes reviewing your design. What did you miss? What could be better? Add your self-evaluation to the bottom of the file.
+1. **Pick a Prompt:** Choose a system to design. *(e.g., "Design a URL Shortener", "Design Twitter", "Design WhatsApp")*
+2. **Copy the Template:** Duplicate `template.md` and name it after your prompt *(e.g., `twitter-design.md`)*.
+3. **Start the Clock:** Set a timer strictly for **45 minutes**. Time management is arguably the most common reason developers fail system design rounds.
+4. **Think Out Loud (On Paper):** Don't just hold ideas in your head—write them down. Use the template to force yourself through the exact interview phases: Requirements, API Design, High-Level Architecture, and Deep Dives.
+5. **Review and Reflect:** When the timer goes off, **stop designing**. Transition to reviewing your own work. Spend 10-15 minutes filling out the self-evaluation section. Did you forget a Load Balancer? Did you spend 20 minutes on APIs and run out of time? Identifying these flaws is how you improve.
+
+## 💡 Key Insight
+**Knowledge is useless without application.** You can read all the core concepts and memorize CAP theorem definitions perfectly, but until you practice pulling those concepts together under a time limit, you will struggle in a real interview. Building the muscle memory of *structuring* your answer is just as important as knowing the technical facts.
+
+## 🎯 Recommended Practice Prompts
+If you don't know where to start, try tackling these industry-standard systems:
+- **Design a URL Shortener** (Focus: Database Scaling, Sharding, fast Caching)
+- **Design a Twitter/Instagram Feed** (Focus: Heavy reads, Fan-out architecture, Eventual consistency)
+- **Design WhatsApp/Discord** (Focus: Real-time WebSockets, Message Queues, Low latency)
+- **Design a Web Crawler** (Focus: Distributed background processing, Fault tolerance)
+
+## 🎤 Interview Tip
+When practicing in this folder, literally **speak out loud** as you type or write your Mermaid diagrams. Getting completely comfortable vocalizing your engineering tradeoffs (*"I chose a NoSQL database here because..."*) will make you significantly more confident and eloquent when sitting across from an actual engineering manager.

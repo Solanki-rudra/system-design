@@ -1,69 +1,84 @@
 # System Design Practice: [System Name]
 
 **Date:** YYYY-MM-DD
-**Time Spent:** [Target: 40-45 minutes]
+**Time Spent:** [Target: 45 minutes max]
 
 ---
 
-## 1. Requirements Exploration (5-10 mins)
+## 1. Requirements & Scoping (5-10 mins)
+*Tip: Treat this step as a conversation to define boundaries. Do not design the whole world, just what is explicitly in scope.*
 
 ### Functional Requirements
-*What should the system do?*
+*What specific features and user behaviors must the system support to solve the problem?*
 - [ ] 
 - [ ] 
+- [ ] *(Are there any explicitly out-of-scope features to ignore? e.g., Auth, Payments)*
 
 ### Non-Functional Requirements
-*How should the system behave? (Scale, Latency, Reliability, Consistency vs. Availability)*
-- [ ] Scale:
-- [ ] Constraints/Limits:
-- [ ] 
+*What are the constraints and quality attributes? These heavily dictate your architecture.*
+- [ ] **Scale:** Expected Daily Active Users (DAU), Read/Write Queries Per Second (QPS).
+- [ ] **Data Volume:** How much data is generated or stored per second/day/year?
+- [ ] **Latency / Performance:** Is speed critical? *(e.g., Must respond in < 200ms)*
+- [ ] **CAP Tradeoff:** In a network partition, do we prioritize Consistency (CP) or Availability (AP)?
 
 ---
 
-## 2. Core Entities / API Design (5 mins)
+## 2. Core Entities & API Design (5 mins)
+*Tip: Defining APIs early solidifies the system boundaries and data interactions before you get stuck drawing boxes.*
 
 ### APIs
-*What are the core endpoints?*
-- `POST /example` -> {}
-- `GET /example/{id}` -> {}
+*What are the core endpoints external clients will hit?*
+- `POST /v1/example` -> Request: `{}`, Response: `{}`
+- `GET /v1/example/{id}` -> Response: `{}`
 
-### Core Entities
-*What are the main objects?*
-- Entity 1:
-- Entity 2:
+### Core Entities / Data Schema
+*What are the main nouns? Will this map better to a SQL or NoSQL database?*
+- **User:** `{ id, username, created_at }`
+- **Item:** `{ id, user_id, payload }`
 
 ---
 
 ## 3. High-Level Design (10-15 mins)
-
-*Draw your architecture here using Mermaid.js*
+*Tip: Draw the "Happy Path" first. Get the data from the client to the database. Narrate your choices out loud as if explaining to an interviewer.*
 
 ```mermaid
 flowchart TD
-    Client[Client] --> LB[Load Balancer]
-    LB --> API[API Server]
-    API --> Cache[(Cache)]
-    API --> DB[(Database)]
+    Client([Client Application]) --> LB{Load Balancer}
+    LB --> API[API Gateway / App Servers]
+    API --> Cache[(Redis Cache)]
+    API --> PrimaryDB[(Primary Database)]
+    PrimaryDB -.-> ReplicaDB[(Read Replicas)]
 ```
 
 ---
 
-## 4. Deep Dives / Bottlenecks (10-15 mins)
+## 4. Deep Dives, Tradeoffs & Bottlenecks (10-15 mins)
+*Tip: Identify Single Points of Failure (SPOF) and justify your technology decisions. Remember, there are no perfect architectures, only tradeoffs.*
 
-*Focus on the hardest parts of the system. Trade-offs belong here.*
-- **Component X:** Why did I choose this database? (e.g., SQL vs NoSQL)
-- **Component Y:** How are we partitioning the data?
-- **Component Z:** How to resolve race conditions?
+### A. Data Storage Justification
+- **SQL vs NoSQL:** *Why choose this? (e.g., "I chose Postgres because we need strict ACID compliance for transactions.")*
+
+### B. Scaling & Optimization
+- **Caching:** *What specific data is being cached? Are we using a CDN for static assets?*
+- **Asynchronous Processing:** *Do we need Message Queues (Kafka) to offload heavy background tasks?*
+- **Partitioning/Sharding:** *If a single hard drive fills up, how do we split the data? (e.g., Shard by UserID).*
+
+### C. Bottlenecks / SPOFs
+- *What happens if the primary database goes offline?*
+- *What is the biggest bottleneck if traffic suddenly spikes 10x?*
 
 ---
 
-## 5. Self-Evaluation
+## 5. Self-Evaluation & Reflection
 
-*What went well?*
+### Key Insight
+*Practice is only useful if you identify your weak points. Time management is usually the hardest part.*
+
+### What went well?
 - 
 
-*What did I miss or struggle with?*
-- 
+### What did I miss or struggle with?
+- *(e.g., "I spent 20 minutes on the exact DB schema and had to rush the caching strategy.")*
 
-*Action items to study:*
+### Action items to study:
 - 
