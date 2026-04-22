@@ -47,3 +47,20 @@ Therefore, the CAP theorem almost always forces you to choose between **Consiste
 
 ## Interview Tip
 Before deciding on your database architecture or caching strategy, explicitly ask your interviewer: *"In the event of a network failure, what matters more to our users here? Seeing perfectly up-to-date information (Consistency), or ensuring the service just stays online (Availability)?"*
+
+## Common Questions & Scenarios
+
+**Q: What is the key trade-off that the CAP theorem forces system designers to make?**
+A: The CAP theorem forces designers to choose between showing the latest data (consistency) or being up more often (availability), since failures will inevitably happen in distributed systems. You cannot guarantee both consistency and availability simultaneously in the presence of network partitions.
+
+**Q: In the CAP theorem, what two properties should a banking application prioritize and why?**
+A: A banking application should prioritize **consistency and partition tolerance (CP)** over availability. It's more important for a banking app to show accurate, consistent data than to be available all the time. This is why banks sometimes go offline for scheduled maintenance.
+
+**Q: When designing an e-commerce store that handles transactions, which CAP theorem property should be prioritized?**
+A: **Consistency (CP)** should be prioritized for an e-commerce store's transaction flow. Since transactions are involved, it's critical that all users see the same accurate data to prevent issues like double-charging or inventory discrepancies.
+
+**Q: For a link shortening service, which CAP theorem property is most critical and what is the reasoning?**
+A: **Availability (AP)** is most important for a link shortening service. The core functionality is connecting people with the short code to the destination URL, so the service must be able to handle requests and be accessible to users at all times. Even if new links take a moment to propagate, existing links should always resolve.
+
+**Q: Why might a social application prioritize availability over consistency according to CAP theorem principles?**
+A: Social applications typically have more reads than writes, so **availability (AP)** is more important to keep the system accessible to users. Additionally, if there are critical disagreements about data, users can communicate through alternative channels. Eventual consistency is usually acceptable for social features.
