@@ -14,7 +14,7 @@ These describe the specific behaviors, features, and core use cases of the syste
 These dictate the quality, scale, constraints, and operational attributes of the system. In system design, non-functional requirements almost exclusively drive your architectural tradeoffs.
 
 Rather than specific features, NFRs target overall **System Quality Attributes** (like Availability, Latency, or Security). 
-*(See `functional-vs-nonfunctional.md` for a deep dive into the 5 key pillars of system quality).*
+*(See [`functional-vs-nonfunctional.md`](./functional-vs-nonfunctional.md) for a deep dive into the 5 key pillars of system quality).*
 
 ## Key Insight
 **Bad requirements = bad system.** An architecture perfectly built for the wrong problem is still a failed system. Clarifying requirements sets the boundaries and tells you whether you need a simple monolithic database or a complex, globally distributed architecture.
