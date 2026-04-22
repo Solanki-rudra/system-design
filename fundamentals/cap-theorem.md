@@ -29,9 +29,9 @@ flowchart TD
     Choice -.-x|Consistency + Availability| CA["CA System
     Impossible during partition!"]
     
-    style CA fill:#ffcccc,stroke:#ff0000,stroke-width:2px,stroke-dasharray: 5 5
-    style CP fill:#ccffcc,stroke:#00aa00,stroke-width:2px
-    style AP fill:#ccccff,stroke:#0000aa,stroke-width:2px
+    style CA fill:none,stroke:#ff4444,stroke-width:2px,stroke-dasharray: 5 5
+    style CP fill:none,stroke:#44aa44,stroke-width:2px
+    style AP fill:none,stroke:#4444ff,stroke-width:2px
 ```
 
 Therefore, the CAP theorem almost always forces you to choose between **Consistency** and **Availability** when a partition occurs:
