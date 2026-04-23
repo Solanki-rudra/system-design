@@ -24,6 +24,13 @@ A: URL expiration bridges both categories:
 - **Functional:** It explicitly dictates feature behavior (a user clicking an expired link experiences a 404 or a 'Link Expired' page instead of a redirect).
 - **Non-Functional:** It fundamentally alters system storage, maintenance, and predictability. If URLs *don't* expire, the system's database will grow infinitely, requiring massive storage scaling. If they *do* expire, the architecture must include an automated cleanup/garbage-collection process (e.g., a background cron job) to purge stale data and free up capacity.
 
+## 4. Translating Requirements to APIs
+
+A critical rule of thumb in system design is that **API design should be a literal translation of your business requirements into code.**
+
+*   If you can successfully articulate and convert your functional and non-functional requirements into a tangible list of API endpoints, you have essentially solved the core of a simple application.
+*   **The Power of Visualization:** Explicitly listing out all endpoints helps visualize the actual scope of the system. You will frequently find that seemingly overwhelmingly complex functional requirements actually boil down to just two or three predictable endpoints, drastically simplifying how you mentally reason about the architecture.
+
 ## Key Insight
 **Bad requirements = bad system.** An architecture perfectly built for the wrong problem is still a failed system. Clarifying requirements sets the boundaries and tells you whether you need a simple monolithic database or a complex, globally distributed architecture.
 
