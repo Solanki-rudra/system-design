@@ -10,8 +10,14 @@ A structured framework is critical in a system design interview. It prevents you
 
 ## 2. Define Core Entities & APIs (5 min)
 Identify the primary nouns of the system to define the data model and the APIs that external clients will consume.
-- **Entities**: User, Video, Comment.
-- **APIs**: `createPost(userId, media)`, `getFeed(userId, paginationOffset)`. 
+
+**Q: What are the two main aspects of modeling requirements in system design?**  
+A: Once you establish your requirements, you transition into modeling through two main pillars:
+1. **Entity Modeling:** Identifying the core components and most important "nouns" in the system (e.g., a "Transaction" in a banking app). 
+2. **API Design:** Defining the actions and operations the system will support. Both of these are directly derived from the functional and non-functional requirements you just gathered.
+
+- **Example Entities**: User, Video, Comment.
+- **Example APIs**: `createPost(userId, media)`, `getFeed(userId, paginationOffset)`. 
 
 ## 3. High-Level Architecture (10–15 min)
 Draw the 'happy path' architecture. Connect the client to your backend services solving the core requirement without worrying about scaling to millions of users just yet.

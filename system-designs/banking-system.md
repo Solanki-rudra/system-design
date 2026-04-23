@@ -30,6 +30,11 @@ A: To correctly define availability targets and system recovery strategies, you 
 2. **How frequently should backups be verified/checked?**
 3. **What is the maximum allowed time to restore from a backup?** (Establishing the Recovery Time Objective)
 
+## Data Modeling
+
+**Q: In a banking application, what would typically be the core entity in entity modeling?**  
+A: A **Transaction**. While users and accounts are important, the transaction is the most critical event in a banking app. It dictates money movement, forms the immutable ledger, and is the primary focus when modeling the system's entities to ensure consistency and auditability.
+
 ## Architectural Trade-offs
 
 ### The Cost of End-to-End Encryption
