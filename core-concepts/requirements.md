@@ -16,6 +16,14 @@ These dictate the quality, scale, constraints, and operational attributes of the
 Rather than specific features, NFRs target overall **System Quality Attributes** (like Availability, Latency, or Security). 
 *(See [`functional-vs-nonfunctional.md`](./functional-vs-nonfunctional.md) for a deep dive into the 5 key pillars of system quality).*
 
+## 3. The Grey Area
+Sometimes, a requirement heavily influences both functional user behavior and architectural non-functional constraints.
+
+**Q: Is "URL expiration" typically considered a functional or non-functional requirement in a URL shortener system, and why?**  
+A: URL expiration bridges both categories:
+- **Functional:** It explicitly dictates feature behavior (a user clicking an expired link experiences a 404 or a 'Link Expired' page instead of a redirect).
+- **Non-Functional:** It fundamentally alters system storage, maintenance, and predictability. If URLs *don't* expire, the system's database will grow infinitely, requiring massive storage scaling. If they *do* expire, the architecture must include an automated cleanup/garbage-collection process (e.g., a background cron job) to purge stale data and free up capacity.
+
 ## Key Insight
 **Bad requirements = bad system.** An architecture perfectly built for the wrong problem is still a failed system. Clarifying requirements sets the boundaries and tells you whether you need a simple monolithic database or a complex, globally distributed architecture.
 

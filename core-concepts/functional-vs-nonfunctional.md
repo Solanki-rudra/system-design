@@ -34,6 +34,12 @@ All of these are vital and constantly involve trade-offs depending on the system
 ### 1. Reliability
 Focuses on making sure the system provides accurate data and stays online (often balancing Consistency vs Availability as per the CAP theorem).
 
+**Q: What are three important questions to ask about data durability and backup for critical systems like banking?**
+A: When defining availability targets and recovery strategies, you must ask:
+1. **How frequently should data be backed up?** Determines potential data loss window.
+2. **How frequently should backups be verified/checked?** Ensures the backups actually work and are not corrupted.
+3. **What is the maximum allowed time to restore from a backup?** Defines the Recovery Time Objective (RTO) for the system.
+
 ### 2. Observability
 **Q: What is the relationship between system observability and effective troubleshooting?**
 A: System observability is critical for troubleshooting because it provides necessary insight into the internal state of the system when something fails. Poor observability means you only discover errors when a failure occurs and you have no data to diagnose it. Good observability includes proper logging, metrics, and alerting so that issues can be quickly triaged before customers report them or call centers get overwhelmed.
@@ -48,3 +54,8 @@ Relates broadly to how fast and how much data the system can handle. (See `trade
 ### 5. Security (and Safeguards)
 **Q: What is Chesterton's fence and how does it relate to system security?**
 A: **Chesterton's fence** is a principle suggesting that before removing or dismissing existing safeguards, you must first understand why they were originally put in place (like someone opening a gate without realizing there's a dangerous bull on the other side). In system security, this means assuming that previous developers implemented security measures for good reasons (like strict regulatory compliance, logging, or auditing) and not bypassing them without understanding their underlying necessity.
+
+**Q: What are two key non-functional requirements related to data protection in highly secure systems, such as a banking application?**
+A: 
+1. **Encryption**: Transaction data must be encrypted both in-transit (over the network) and at-rest (in the database).
+2. **Process Compliance**: There must be data process compliance requirements to protect PII (Personally Identifiable Information). Depending on the region, this may include adhering to strict regulatory frameworks like GDPR.
