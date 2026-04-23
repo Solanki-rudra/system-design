@@ -38,3 +38,12 @@ When designing an API, you frequently face the tradeoff of whether to create sep
 ### The GraphQL Trap
 **Q: When designing a system's API, when might you explicitly avoid using a sophisticated solution like GraphQL?**
 **A:** You should avoid GraphQL when the API is simple enough that it does not merit the added structural complexity. If a system only needs a few straightforward endpoints to execute basic CRUD operations, a simple REST-based HTTP approach is far cheaper, easier to maintain, and natively supports edge-caching without the heavy backend resolvers, schemas, and performance tuning that GraphQL inherently requires.
+
+## Scaling: Vertical vs. Horizontal
+
+As traffic grows, you must scale your system. The choice of *how* to scale represents a massive architectural pivot.
+
+*   **Vertical Scaling (Scaling Up):** Involves buying a bigger, faster server (more CPU, RAM, Disk).
+    *   *Tradeoff:* It is incredibly **simple** (requiring no code changes), but it introduces a terrifying **Single Point of Failure**. Furthermore, there's a hard physical limit to how powerful one specific machine can get.
+*   **Horizontal Scaling (Scaling Out):** Involves adding many more commodity servers and distributing the load.
+    *   *Tradeoff:* It offers essentially **infinite scale and high resiliency** (if one server dies, the rest pick up the slack). However, it massively increases **architectural complexity**. You now need load balancers, orchestrators, and distributed messaging systems like Apache Zookeeper to keep the fleet of machines synchronized.
