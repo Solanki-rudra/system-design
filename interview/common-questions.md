@@ -97,6 +97,40 @@ This document compiles common architectural scenarios, conceptual trade-offs, an
 *   **Read-heavy examples** include npm (massive download volume vs. rare package publishing), social media scrolling, and data warehouses. 
 *   **Write-heavy examples** include logging systems, real-time metric collection, and eventing systems where data ingestion is the primary workload.
 
+**Q: When comparing relational and non-relational databases, which type is better suited for situations requiring strict, consistent data storage schemas?**
+**A:** **Relational databases** are better suited. They provide stronger guarantees about data integrity and consistency. However, this strictness means the cost of fixing an incorrect schema later in development is very high.
+
+**Q: Why do relational databases typically scale vertically rather than horizontally?**
+**A:** Horizontal scaling distributes load across multiple servers, while vertical scaling adds power to a single server. Relational databases scale vertically because of their strict transactional nature. Ensuring ACID compliance across distributed nodes is extremely complex, making load balancing difficult without creating data conflicts.
+
+**Q: What does the 'A' (Atomicity) in ACID compliance guarantee for relational database transactions?**
+**A:** Atomicity guarantees that a transaction is treated as a single, indivisible unit of work ("all or nothing"). If a transaction involves multiple operations (e.g., one write and two reads), *all* operations must complete successfully. If any single operation fails, the entire transaction fails and the database state remains unchanged.
+
+**Q: Why do relational databases generally excel at complex queries compared to non-relational databases?**
+**A:** Relational databases structure data into highly organized tables with explicit relationships. The database engine knows exactly where specific data resides, allowing for highly optimized, fast extractions. Non-relational databases often store unstructured data (like JSON documents), which may require slower, field-by-field scanning during complex searches.
+
+**Q: What is denormalization in the context of non-relational databases, and why is it used?**
+**A:** Denormalization is the strategic duplication of data, placing it directly within a single document rather than spreading it across multiple referenced tables (the opposite of relational normalization). In databases like MongoDB, this is used to dramatically optimize read performance by allowing all required data to be retrieved in a single query. However, this must be balanced against hard limits on document size (e.g., MongoDB's 16MB limit).
+
+**Q: What are the four main families of non-relational (NoSQL) databases?**
+**A:** The four main families are: 
+1) **Document stores** (e.g., MongoDB, Couchbase) which store flexible JSON-like blobs.
+2) **Key-value stores** (e.g., Redis, DynamoDB) which store simple key-value pairs for ultra-fast lookups.
+3) **Column databases** (e.g., Cassandra, HBase) which organize data by columns to optimize searching and encoding.
+4) **Graph databases** (e.g., Neo4j, Amazon Neptune) which explicitly map complex relationships and connections between entities.
+
+**Q: Why are key-value stores like Redis particularly fast for read operations?**
+**A:** Key-value stores are exceptionally fast because there is no search or complex lookup required. The data is directly indexed by the key itself. Because they simply map a unique key to a specific value, read operations operate with sub-millisecond latency, making them ideal for caching layers and high-speed session storage.
+
+**Q: What are the primary use cases for column databases like Cassandra?**
+**A:** Column databases are optimized for scenarios requiring fast searches across massive datasets without a strict structure. By storing similar data sequentially in columns (e.g., all "names" together), queries for specific fields become highly efficient. Furthermore, they can significantly reduce storage space by encoding repetitive values efficiently.
+
+**Q: What types of problems are graph databases like Neo4j designed to solve?**
+**A:** Graph databases are engineered to map and analyze complex relationships (edges) between entities (nodes). Common use cases include social networks (mapping friend connections), recommendation engines, and fraud detection (identifying suspicious patterns and relationships across multiple transactions). They excel anywhere analyzing the *connections* between data points is more important than the data points themselves.
+
+**Q: When would you choose a document store database like MongoDB over a relational database?**
+**A:** A document store is an excellent choice when storing data that lacks a strict, predictable schema or where the structure naturally varies between items. They are ideal for product catalogs or content management systems where one document might require entirely different fields than the next, taking full advantage of their flexible, JSON-like storage format.
+
 ---
 
 ## Distributed Systems & Scaling
