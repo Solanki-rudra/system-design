@@ -39,6 +39,37 @@ When designing an API, you frequently face the tradeoff of whether to create sep
 **Q: When designing a system's API, when might you explicitly avoid using a sophisticated solution like GraphQL?**
 **A:** You should avoid GraphQL when the API is simple enough that it does not merit the added structural complexity. If a system only needs a few straightforward endpoints to execute basic CRUD operations, a simple REST-based HTTP approach is far cheaper, easier to maintain, and natively supports edge-caching without the heavy backend resolvers, schemas, and performance tuning that GraphQL inherently requires.
 
+## Data Management: Storage & Structure
+
+Choosing how and where data lives determines your system's durability, speed, and flexibility. 
+
+```mermaid
+mindmap
+  root((Data Management))
+    Storage
+      Persistent
+        [Written to disk]
+        [Survives restarts]
+      Ephemeral
+        [Stored in memory]
+        [Lost on crash]
+    Structure
+      Structured
+        [Strict schema]
+        [Relational SQL]
+      Unstructured
+        [Loosey-goosey JSON]
+        [NoSQL]
+```
+
+### 1. Persistent vs Ephemeral Storage
+- **Persistent Storage:** Data is written to disk (e.g., hard drives, SSDs) and will survive system restarts or power losses. It is essential for source-of-truth data (user profiles, transaction histories) that must be available later. The trade-off is that disk I/O is comparatively slow.
+- **Ephemeral Storage:** Data is only stored temporarily, typically in memory (RAM). It is incredibly fast but will be entirely lost if the machine restarts or crashes. This is appropriate for short-lived data like caching layers, session states, or in-flight calculations.
+
+### 2. Structured vs Unstructured Data
+- **Structured Data:** Data has a strictly defined schema, similar to object-oriented programming with clear relationships between objects. This data fits perfectly into rows and columns. **Relational databases (SQL)** excel here.
+- **Unstructured Data:** Data is "loosey-goosey", lacking a rigid schema. It might be stored as JSON blobs with varying or overlapping fields. **Non-relational databases (NoSQL)** like document stores are better suited for this flexibility.
+
 ## Scaling: Vertical vs. Horizontal
 
 As traffic grows, you must scale your system. The choice of *how* to scale represents a massive architectural pivot.

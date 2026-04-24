@@ -84,6 +84,21 @@ This document compiles common architectural scenarios, conceptual trade-offs, an
 
 ---
 
+## Data Storage & Databases
+
+**Q: What are the two main types of data formats that dictate database selection, and what type of database does each correspond to?**
+**A:** The two main types are **Structured Data** and **Unstructured Data**. Structured data has a strictly defined schema (similar to object-oriented programming relationships) and is designed for Relational (SQL) databases. Unstructured data is more flexible ("loosey-goosey"), often stored as JSON blobs with varying or overlapping fields, and is best suited for Non-Relational (NoSQL) databases.
+
+**Q: What is the fundamental difference between persistent and ephemeral data storage?**
+**A:** **Persistent data storage** means data is permanently written to disk (hard drive/SSD) and will survive a system restart, making it ideal for the primary database or source of truth. **Ephemeral data storage** means data is stored temporarily in memory (RAM) and will be entirely lost if the machine restarts. Ephemeral storage is perfect for highly accessed, short-lived data like caching or active user sessions.
+
+**Q: In terms of system traffic profiles, what is the typical read-to-write ratio for most web applications, and what are examples of each extreme?**
+**A:** Most web applications are heavily read-biased, typically exhibiting ratios ranging from **10:1 to 1000:1 reads to writes**. 
+*   **Read-heavy examples** include npm (massive download volume vs. rare package publishing), social media scrolling, and data warehouses. 
+*   **Write-heavy examples** include logging systems, real-time metric collection, and eventing systems where data ingestion is the primary workload.
+
+---
+
 ## Distributed Systems & Scaling
 
 **Q: What are the two main types of scaling discussed for distributed systems, and how do they fundamentally differ?**

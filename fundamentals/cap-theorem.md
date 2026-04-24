@@ -39,8 +39,12 @@ Therefore, the CAP theorem almost always forces you to choose between **Consiste
 - **AP (Availability & Partition Tolerance)**: You prioritize uptime. If a partition happens, the system will return the most recent version of data it has locally, even if it might not be the most up-to-date globally.
 
 ## Practical Use Cases
-- **Financial/Banking Systems (CP)**: You absolutely cannot have a user overdraw their account balance because one server didn't see a transaction that happened on another server. The system must block reads/writes if it can't guarantee consistency.
-- **Social Media Feeds (AP)**: If your feed takes a few extra seconds to show a friend's new photo, nobody gets hurt. The important thing is that the app keeps loading and showing *some* content. The system must stay up.
+- **Consistency Prioritized (CP)**: 
+  - **Financial/Banking Systems**: You absolutely cannot have a user overdraw their account balance because one server didn't see a transaction that happened on another server. The system must block reads/writes if it can't guarantee consistency.
+  - **Health Records**: Accurate, consistent data is absolutely critical. A patient's medical treatment cannot be based on outdated records.
+- **Availability Prioritized (AP)**:
+  - **Social Media Feeds**: If your feed takes a few extra seconds to show a friend's new photo, nobody gets hurt. The important thing is that the app keeps loading and showing *some* content. The system must stay up.
+  - **Air Traffic Control Systems**: Continuous access and constant updates are more critical than perfect, blocking synchronization. The system must prioritize staying online so planes can communicate and be tracked.
 
 ## Key Insight
 **The perfect system doesn't exist, only tradeoffs.** Recognizing whether a system requirement leans toward CP or AP gives you immediate direction on which databases (e.g., strong-consistency vs eventual-consistency) or synchronization tools to select.

@@ -9,7 +9,7 @@ pie title Typical Traffic Ratios
     "Reads (e.g., viewing data)" : 80
     "Writes (e.g., updating data)" : 20
 ```
-*Note: The exact ratio varies heavily by domain.*
+*Note: The exact ratio varies heavily by domain, but most applications are strongly read-heavy with typical ratios ranging from 10:1 to 1000:1 (reads to writes).*
 
 **Q: Why is it important to distinguish between read and write transactions when determining non-functional requirements?**
 A: Different systems have vastly different operational profiles. For example, banking applications or social media feeds are typically **read-heavy** (users check their balances/transaction history far more frequently than they transfer money or make payments). 
@@ -21,14 +21,20 @@ Understanding this ratio is crucial because it helps determine:
 ## System Profiles
 
 ### Read-Heavy Systems
-- **Examples**: Twitter feeds, YouTube video consumption, Banking apps (checking balances).
+- **Examples**: 
+  - **Social media** (where users mostly scroll, e.g., Twitter feeds or YouTube).
+  - **Package managers** like `npm` (where most users download packages rather than publish).
+  - **Data warehouses** and Banking apps (checking balances).
 - **Optimization Strategy**: 
   - Substantial caching layers.
   - Database read-replicas.
   - Content Delivery Networks (CDNs) for static assets.
 
 ### Write-Heavy Systems
-- **Examples**: IoT telemetry ingestion, Click-tracking systems, Logging services.
+- **Examples**: 
+  - **Logging systems** and metric collection.
+  - **Eventing systems**.
+  - IoT telemetry ingestion and click-tracking.
 - **Optimization Strategy**:
   - Write-optimized databases (e.g., Cassandra, Time-series databases).
   - Message queues or event streams (Kafka) to buffer high-velocity write bursts.
