@@ -78,6 +78,35 @@ graph TD
 * **Vertical Scaling (Relational):** Relational databases typically scale vertically (adding a larger CPU, more RAM, or faster disks to a single server). This is primarily due to their strict transactional nature. Distributing a relational load across multiple nodes while ensuring data consistency and avoiding write conflicts is exceptionally difficult.
 * **Horizontal Scaling (Non-Relational):** Non-Relational databases are often designed from the ground up to scale horizontally (adding more commodity servers to a distributed cluster). Because they relax strict consistency rules, they can seamlessly shard data across many nodes.
 
+### Partitioning vs. Sharding
+
+When a database grows too large to perform efficiently, data must be divided. Two common techniques are partitioning and sharding, which are often confused but have a critical structural difference: physical location.
+
+```mermaid
+graph TD
+    subgraph Partitioning [Partitioning: Single Machine]
+        DB_Machine[Single Database Server]
+        DB_Machine --- Table1[Partition 1: A-M]
+        DB_Machine --- Table2[Partition 2: N-Z]
+    end
+    
+    subgraph Sharding [Sharding: Multiple Machines]
+        App[Application] --> Router[Shard Router]
+        Router -.-> Server1[Server 1: Shard A-M]
+        Router -.-> Server2[Server 2: Shard N-Z]
+    end
+```
+
+*   **Partitioning:** Slicing the data into smaller, more manageable pieces *on the same machine or database instance*. It is typically implemented before sharding because it's much simpler—there is no need to provision new hardware or manage network complexity between nodes. It directly improves query performance on a single server.
+*   **Sharding:** Slicing the data and distributing it *across multiple independent machines or database instances*. Sharding implies a distributed architecture. It is implemented only after a single machine hits its absolute physical limits, adding significant operational complexity.
+
+**The Shard Key**
+When sharding, data is distributed based on a **Shard Key**—an arbitrary field chosen by the developer (e.g., User ID, Geographic Region). Selecting the correct shard key is critical. A poor choice leads to uneven data distribution (data skew), causing certain database clusters to become overloaded "hotspots" while others sit underutilized. For example, sharding by last name assumes names are evenly distributed across the alphabet, which is rarely true.
+
+**Sharding Complexity:**
+*   **NoSQL:** Databases like MongoDB are built to handle sharding natively and automatically, scaling horizontally as load increases.
+*   **Relational (SQL):** Sharding must be manually engineered at the application layer, requiring careful planning to maintain transactional guarantees across disparate machines. Furthermore, complex queries that span multiple tables located on different shards suffer severe performance penalties due to network overhead.
+
 ## ACID Compliance
 
 **ACID** is a set of properties that guarantee database transactions are processed reliably, forming the bedrock of relational database integrity.

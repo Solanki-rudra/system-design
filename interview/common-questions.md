@@ -131,6 +131,21 @@ This document compiles common architectural scenarios, conceptual trade-offs, an
 **Q: When would you choose a document store database like MongoDB over a relational database?**
 **A:** A document store is an excellent choice when storing data that lacks a strict, predictable schema or where the structure naturally varies between items. They are ideal for product catalogs or content management systems where one document might require entirely different fields than the next, taking full advantage of their flexible, JSON-like storage format.
 
+**Q: What is the key architectural difference between partitioning and sharding in database design?**
+**A:** The primary difference is the physical location of the data. **Partitioning** involves slicing data into smaller, manageable chunks *on the same machine or database instance*. **Sharding** involves slicing data and distributing those pieces *across entirely different, independent machines or databases*. Both increase performance by dividing data, but sharding implies a complex distributed architecture.
+
+**Q: Why is it standard practice to exhaust partitioning before moving to sharding when scaling a relational database?**
+**A:** Partitioning is fundamentally simpler because it doesn't require provisioning additional hardware or managing complex network routing. You are just reorganizing data on the existing server to make local queries faster. Sharding should only be implemented after a single machine hits its physical limits, as it introduces immense operational complexity by distributing data across multiple independent nodes.
+
+**Q: What is a shard key, and what is the danger of choosing an incorrect one?**
+**A:** A shard key is the specific, arbitrary field (e.g., User ID, Last Name) used to determine how data is distributed across sharded databases. If chosen incorrectly, it leads to uneven data distribution. For example, sharding by last name might cluster a massive number of users starting with 'S' on one database, overloading that cluster (creating a "hotspot") while other servers sit idle.
+
+**Q: How does the implementation of sharding fundamentally differ between Relational and NoSQL databases?**
+**A:** In modern **NoSQL databases** (like MongoDB), sharding is often a native, automatic feature built into the system to seamlessly scale horizontally. In **Relational databases**, sharding is not native and must be manually implemented and managed by the application layer, requiring meticulous planning to maintain ACID compliance and transactional integrity across distributed machines.
+
+**Q: What is a severe performance drawback when using sharding, specifically for applications relying on complex queries?**
+**A:** When complex queries (like multi-table joins) need to access data that has been distributed across different physical shards, performance degrades significantly. The application must reach across the network to multiple disparate databases, retrieve partial results, and stitch them back together, introducing immense network overhead and latency compared to querying a single unified server.
+
 ---
 
 ## Distributed Systems & Scaling
