@@ -218,6 +218,28 @@ This document compiles common architectural scenarios, conceptual trade-offs, an
 
 ---
 
+## Estimations & Capacity Planning
+
+**Q: What is the primary, overarching purpose of doing back-of-the-envelope estimations during a system design interview?**
+**A:** The primary purpose is **direction, not precision**. Estimations provide a mathematical sanity check to ensure your proposed architecture can handle the expected load. Critically, they help you identify the single most important bottleneck in your system (e.g., determining if the application is constrained by sheer storage size, or by read/write throughput limits).
+
+**Q: What are the three key metrics you should immediately attempt to estimate when designing a new system?**
+**A:** The three critical metrics are:
+1) **Total Users** (Active daily/monthly users)
+2) **Throughput/Traffic** (Requests Per Second, balancing read vs. write ratios)
+3) **Storage Capacity** (How much data is generated and stored per month/year)
+
+**Q: At what storage scale should you realistically begin considering database sharding, and why?**
+**A:** You should generally start thinking about sharding when a single database approaches the **1 Terabyte (TB)** mark. Anything under 500 Gigabytes (GB) provides plenty of comfortable margin for a single instance. At the multi-terabyte scale, even though the disk might hold the data, operational tasks like rebuilding indexes, running backups, or migrating tables become cripplingly slow, mandating a distributed approach.
+
+**Q: If a To-Do application has 100,000 active users, and each user creates 3 tasks a day (at 500 bytes per task), roughly how much storage does the system generate per month, and what does this mean architecturally?**
+**A:** It generates roughly **4.5 GB per month**. *(Math: 100,000 users * 3 tasks * 30 days * 500 bytes = 4.5 billion bytes, or 4.5 GB).* Architecturally, this proves that storage size is a complete non-issue for this system. 4.5 GB a month means a single standard database could run for a decade without ever coming close to needing sharding.
+
+**Q: In terms of system estimations, why is it functionally unnecessary to memorize exact latency timings for L1 cache vs. L2 cache vs. disk seeks?**
+**A:** In high-level architecture, you only need to understand the **relative hierarchy of speeds**, not the exact microsecond timings. The critical, actionable takeaway is simply understanding that **RAM (Memory) is exponentially faster than Disk**. Because caches live in RAM and databases live on Disk, caching will always provide a massive speed advantage.
+
+---
+
 ## Distributed Systems & Scaling
 
 **Q: What are the two main types of scaling discussed for distributed systems, and how do they fundamentally differ?**
