@@ -146,6 +146,24 @@ This document compiles common architectural scenarios, conceptual trade-offs, an
 **Q: What is a severe performance drawback when using sharding, specifically for applications relying on complex queries?**
 **A:** When complex queries (like multi-table joins) need to access data that has been distributed across different physical shards, performance degrades significantly. The application must reach across the network to multiple disparate databases, retrieve partial results, and stitch them back together, introducing immense network overhead and latency compared to querying a single unified server.
 
+**Q: What is the primary advantage of a Primary-Replica (Master-Slave) database architecture?**
+**A:** The main advantage is drastically improved performance for read-heavy applications. Because the single primary node handles *all* write operations without being slowed down by read queries, and the replicas handle the read operations, the overall system throughput increases. Additionally, if the primary fails, a replica can be promoted to ensure high availability.
+
+**Q: What is the main consistency concern when using a Primary-Replica architecture?**
+**A:** The primary concern is the replication lag. Replicas are not guaranteed to be instantly consistent with the primary. This slight latency gap means clients might occasionally read stale data. More critically, if the primary crashes abruptly, any recent writes that haven't yet been pulled by the replicas will be permanently lost.
+
+**Q: What is the fundamental trade-off of using a Transactional (Synchronous) Replication strategy?**
+**A:** Transactional replication provides a highly consistent system with zero data loss, as a write is not considered complete until every replica confirms it. The severe trade-off is drastically reduced performance and availability. The system must wait for the slowest database or network link to acknowledge the write before responding to the client, making the entire write process exceptionally slow.
+
+**Q: In database terminology, what exactly is a "snapshot" and how is it used during a system failure?**
+**A:** A snapshot is not a visual picture; it is an exact, serialized copy of the database's entire data state at a specific millisecond, often compressed into a large file and saved to durable storage. You generally cannot query this file directly. To use it during a failure, you perform a *restoration*: you provide the snapshot file to an empty database server, which unpacks it and rebuilds the tables and records, effectively "time traveling" the database back to the exact moment the snapshot was taken.
+
+**Q: What are the distinct advantages of using Snapshotting as a replication or backup strategy?**
+**A:** Snapshotting offers several unique advantages: 1) It is computationally cheaper and less resource-intensive because it only occurs at set intervals rather than continuously. 2) It provides a guaranteed, pristine rollback point, acting as a firewall to prevent instant data corruption from spreading across all replicas. 3) Because there is no real-time pressure, massive snapshots are much easier to distribute asynchronously to data centers around the world.
+
+**Q: What is the main architectural complexity introduced by a Primary-Primary (Master-Master) database setup?**
+**A:** The defining complexity is **Conflict Resolution**. Because multiple servers can independently accept and write data simultaneously, the system must have sophisticated mechanisms to negotiate and reconcile differences when two primaries attempt to update the exact same record at the same time. This often requires complex intermediary services or conflict-free data types to safely rectify the state.
+
 ---
 
 ## Distributed Systems & Scaling

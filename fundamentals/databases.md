@@ -115,3 +115,67 @@ When sharding, data is distributed based on a **Shard Key**—an arbitrary field
 * **C - Consistency:** Ensures that a transaction can only bring the database from one valid state to another, adhering to all defined rules, constraints, and triggers.
 * **I - Isolation:** Determines how transaction integrity is visible to other users and systems. It ensures that concurrent execution of transactions leaves the database in the same state as if they were executed sequentially.
 * **D - Durability:** Guarantees that once a transaction has been committed, it will remain committed even in the case of a system failure (e.g., power loss or crash), typically by recording the transaction in a non-volatile log.
+
+## Database Replication Architectures
+
+When scaling databases, especially in read-heavy applications, replication is a crucial strategy. It involves maintaining multiple copies of the same data across different database nodes to improve availability, read throughput, and resilience.
+
+### Primary-Replica (Master-Slave) Architecture
+
+```mermaid
+graph TD
+    subgraph Primary-Replica Architecture
+        App[Application] -->|Write| Primary[(Primary DB)]
+        App -->|Read| Replica1[(Replica 1)]
+        App -->|Read| Replica2[(Replica 2)]
+        
+        Primary -.->|Sync Updates| Replica1
+        Primary -.->|Sync Updates| Replica2
+    end
+```
+
+In a Primary-Replica setup, the system is strictly divided by responsibility:
+*   **Primary Node:** A single, central database that receives *all* write operations.
+*   **Replica Nodes:** One or more secondary databases that strictly handle read operations. They continuously pull updates from the primary to stay synchronized.
+
+**Advantages:**
+*   **Performance Isolation:** The primary advantage is drastically improved performance for read-heavy applications. The primary database isn't bogged down by complex read queries, allowing it to dedicate its resources to fast writes. Replicas handle the bulk of the application's read traffic.
+*   **Failover Resilience:** If the primary node crashes, one of the replicas can be quickly promoted to become the new primary, minimizing downtime.
+
+**The Consistency Trade-off:**
+The critical challenge is that replicas are not guaranteed to be perfectly consistent with the primary at every given millisecond. The brief latency gap between a write occurring on the primary and that update propagating to the replicas means a client might read slightly stale data. In catastrophic failures where the primary dies mid-operation, some recent writes might not have replicated yet, introducing a risk of minor data loss.
+
+### Primary-Primary (Master-Master) Architecture
+
+```mermaid
+graph TD
+    subgraph Primary-Primary Architecture
+        App[Application] -->|Read / Write| Primary1[(Primary Node A)]
+        App -->|Read / Write| Primary2[(Primary Node B)]
+        
+        Primary1 <-->|Bidirectional Sync| Primary2
+    end
+```
+
+In a Primary-Primary architecture, every node in the cluster is treated as a full primary. All servers can independently handle both read and write operations, continuously synchronizing data bidirectionally between themselves.
+
+**Complexities & Conflict Resolution:**
+The massive architectural complexity here is handling conflict resolution. When two different primary nodes receive conflicting writes for the exact same record simultaneously, the system must determine which write wins. This often requires complex vector clocks, conflict-free replicated data types (CRDTs), or a dedicated intermediary negotiation service to rectify the data before the final state is committed across all replicas.
+
+## Replication Strategies
+
+How data is actually synchronized between nodes significantly impacts system performance and consistency guarantees.
+
+### Transactional Replication
+In a transactional (or synchronous) replication strategy, strict consistency is prioritized above all else. 
+*   **Mechanism:** A write operation to the primary is not considered complete until every single replica in the cluster has received the update, written it, and explicitly acknowledged the success back to the primary.
+*   **Trade-off:** While it guarantees a highly consistent system with zero data loss, it severely degrades overall performance and availability. The entire system is only as fast as its slowest network link or database node, forcing the application to wait for total synchronization before proceeding.
+
+### Snapshotting
+Snapshotting is an asynchronous, periodic backup approach rather than a continuous stream of individual updates.
+*   **Mechanism:** At scheduled intervals (e.g., hourly, daily), the system takes a complete, point-in-time "picture" of the database. However, this is not a literal visual image. It is an exact, serialized physical copy of all the underlying data files, tables, and records at that exact millisecond. This data dump is usually compressed into a massive file and stored in cheap, durable storage (like AWS S3).
+*   **How it Works (Restoration):** You generally cannot run queries against a stored snapshot file directly. If the live database crashes or data is corrupted, you must *restore* the snapshot. To do this, you spin up a new, empty database server and instruct it to load the snapshot file. The database engine unpacks the file and completely rebuilds its internal state, effectively "time traveling" the database back to the exact moment the snapshot was taken. Once restoration is complete, it resumes functioning as a normal, live database.
+*   **Advantages:** 
+    *   **Cost-Effective & Low Impact:** It is computationally cheap because it's not a continuous, write-heavy process.
+    *   **Resiliency:** It acts as a hard firewall against data corruption. If a bad write corrupts the live database, that corruption isn't instantly replicated; you have a guaranteed, pristine rollback point to the last known good state.
+    *   **Global Distribution:** Snapshots can be easily distributed to data centers worldwide without the strict time pressure of real-time replication.
