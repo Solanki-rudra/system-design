@@ -166,6 +166,58 @@ This document compiles common architectural scenarios, conceptual trade-offs, an
 
 ---
 
+## Caching
+
+**Q: What is the primary difference between a cache and a database in terms of data access and query complexity?**
+**A:** A cache is engineered for ultra-fast access, typically using a simple key-value store approach that sits as close to the application as possible. Because of this, it generally does not support complex queries. A database sits further down the stack and fully supports highly complex queries (like JOINs and aggregations) across structured data, but is inherently slower to access.
+
+**Q: What are the three main architectural benefits of implementing a caching layer?**
+**A:** Implementing caching provides three core benefits: 
+1) **Reduced Latency:** It drastically improves user experience by serving data from fast memory instead of slower disk storage. 
+2) **Decreased System Load:** It shields the primary database from redundant requests, eliminating unnecessary network hops and computations.
+3) **Lower Costs:** Retrieving frequently accessed data from a cache is significantly cheaper than repeatedly executing expensive database queries.
+
+**Q: In a Cache-Aside (Lazy Loading) strategy, what is the exact sequence of operations when an application needs data?**
+**A:** The sequence is: 
+1) The application first checks the cache for the needed data.
+2) If the data isn't there (a *cache miss*), the application reads the data from the primary database.
+3) The application then writes that retrieved data into the cache so subsequent requests can find it there. This "lazy" approach ensures only actively requested data occupies cache space.
+
+**Q: What is the defining performance advantage and the critical trade-off when using a Write-Behind caching strategy?**
+**A:** The advantage is extremely fast write performance and high availability, as the application writes directly to the cache and instantly returns without waiting for the slower database to update. The critical trade-off is **consistency risk**. Because the cache writes to the database asynchronously in the background later, if the cache server crashes before that sync occurs, those recent writes are permanently lost.
+
+**Q: How does a Content Delivery Network (CDN) leverage caching to improve global performance?**
+**A:** A CDN is a specialized caching layer designed specifically for static assets (images, CSS, JS). It stores copies of these assets on distributed proxy servers around the world. When a user requests a file, the CDN serves it from the geographically closest server (the edge), drastically reducing the physical network hops required, which significantly lowers latency and speeds up load times.
+
+**Q: What is the fundamental architectural tension inherent in any caching system?**
+**A:** A cache is always a secondary representation of data, never the primary source of truth. This creates an inherent tension between **performance** (speed) and **data freshness** (how up-to-date the data is). The faster you want your system to be, the more you might have to accept slightly stale data.
+
+**Q: What is the difference between Cache Invalidation and Cache Eviction?**
+**A:** **Cache Invalidation** is the process of explicitly marking data as no longer fresh or accurate (often due to an update or a TTL expiration), indicating it should not be used. **Cache Eviction** is the physical process of removing data from a cache strictly because the cache is completely full and needs space to store new data, based on a specific removal strategy (like LRU).
+
+**Q: What are the common methods used for cache invalidation?**
+**A:** Cache invalidation ensures stale data isn't served to users. Common methods include:
+1) **Time To Live (TTL):** An absolute time limit is set on cached items. Once expired, the data is automatically considered invalid and purged.
+2) **Explicit Invalidation (Purge):** The application explicitly sends a command to the cache to delete or update a specific key at the exact moment it updates the underlying primary database record.
+3) **Refresh-Ahead:** A proactive approach where a background worker automatically fetches fresh data from the database just before the item's TTL expires, silently replacing the old cached value.
+
+**Q: What are the common types of cache eviction policies and how do they function?**
+**A:** Eviction occurs when a cache hits its physical memory limit and must free up space. Common policies are:
+1) **LRU (Least Recently Used):** Removes the item that has gone the longest amount of time without being accessed. It assumes recently accessed data will likely be needed again soon.
+2) **LFU (Least Frequently Used):** Removes the item with the lowest total access count, prioritizing overall historical popularity rather than just recent activity.
+3) **FIFO (First In, First Out):** A simple queue method that removes the oldest item added to the cache, regardless of how often or recently it was accessed.
+
+**Q: What is TTL and how does it function in a cache?**
+**A:** **TTL (Time To Live)** is a cache invalidation mechanism that specifies a strict time limit (e.g., 5 minutes). Once that duration passes from the moment the data was cached, the data is automatically considered invalid and should be purged, regardless of how often it was accessed during that window.
+
+**Q: What data structure is commonly used to efficiently implement an LRU (Least Recently Used) cache, and why?**
+**A:** A **Doubly Linked List** (usually paired with a Hash Map) is commonly used. This structure allows the system to efficiently track usage order and remove the least recently used item from the tail of the list in $O(1)$ time when the cache needs to evict data.
+
+**Q: How does the "Refresh-Ahead" caching strategy work?**
+**A:** Refresh-ahead is an invalidation strategy where the system proactively and automatically updates the cache periodically in the background. The application constantly reads from the cache with zero latency, while a separate background process continuously fetches the latest data from the database to ensure the cache remains fresh before the data actually expires.
+
+---
+
 ## Distributed Systems & Scaling
 
 **Q: What are the two main types of scaling discussed for distributed systems, and how do they fundamentally differ?**
