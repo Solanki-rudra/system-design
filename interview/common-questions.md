@@ -89,6 +89,21 @@ This document compiles common architectural scenarios, conceptual trade-offs, an
 **Q: What are the two main types of data formats that dictate database selection, and what type of database does each correspond to?**
 **A:** The two main types are **Structured Data** and **Unstructured Data**. Structured data has a strictly defined schema (similar to object-oriented programming relationships) and is designed for Relational (SQL) databases. Unstructured data is more flexible ("loosey-goosey"), often stored as JSON blobs with varying or overlapping fields, and is best suited for Non-Relational (NoSQL) databases.
 
+**Q: When scaling a to-do application that is experiencing slow reads due to database limitations, what is the first and easiest optimization to implement before considering a database migration?**
+**A:** **Add a cache layer** (such as Redis) in front of the database. This is particularly effective for read-heavy applications and can significantly increase capacity and improve latency without requiring expensive database migrations or complex architectural changes.
+
+**Q: What is the recommended sequence of scaling strategies for a relational database as traffic increases from thousands to millions of users?**
+**A:** The standard progression is: 
+1) **Add caching** to offload read requests.
+2) **Vertical scaling** (scaling up the database instance with more RAM/CPU).
+3) **Partitioning** (logically dividing data on the same machine).
+4) **Sharding** with load balancers (distributing data across multiple independent machines).
+5) **Read replicas** (replicating the sharded databases to distribute read load).
+Each step introduces more complexity and should only be implemented when the previous approach reaches its physical limits.
+
+**Q: Why is a database migration (such as switching from a relational database to NoSQL) typically considered the absolute last resort when scaling an application?**
+**A:** Database migrations are inherently expensive and risky. They involve potential application downtime unless executed with extreme care, require specialized Database Administrators (DBAs), and usually force a massive rewrite of the application's entire data access layer. It is always better to exhaust less intrusive scaling strategies (caching, vertical scaling, partitioning, sharding, and replicas) first.
+
 **Q: What is the fundamental difference between persistent and ephemeral data storage?**
 **A:** **Persistent data storage** means data is permanently written to disk (hard drive/SSD) and will survive a system restart, making it ideal for the primary database or source of truth. **Ephemeral data storage** means data is stored temporarily in memory (RAM) and will be entirely lost if the machine restarts. Ephemeral storage is perfect for highly accessed, short-lived data like caching or active user sessions.
 
@@ -145,6 +160,12 @@ This document compiles common architectural scenarios, conceptual trade-offs, an
 
 **Q: What is a severe performance drawback when using sharding, specifically for applications relying on complex queries?**
 **A:** When complex queries (like multi-table joins) need to access data that has been distributed across different physical shards, performance degrades significantly. The application must reach across the network to multiple disparate databases, retrieve partial results, and stitch them back together, introducing immense network overhead and latency compared to querying a single unified server.
+
+**Q: When implementing database sharding for a scaled application, what additional infrastructure components become necessary?**
+**A:** Sharding introduces significant infrastructure overhead. You must add a **load balancer or intelligent router** to accurately route incoming requests to the correct physical shard. Additionally, to maintain performance, a **dedicated cache** is typically placed in front of *each* sharded database, multiplying the number of components to manage and monitor.
+
+**Q: What is an important architectural consideration when implementing read replicas after a database has already been sharded?**
+**A:** When you replicate a sharded database architecture, you must **replicate each individual sharded database separately**. This means the replication strategy must be applied across all shards, exponentially multiplying the number of servers, infrastructure costs, and overall monitoring complexity.
 
 **Q: What is the primary advantage of a Primary-Replica (Master-Slave) database architecture?**
 **A:** The main advantage is drastically improved performance for read-heavy applications. Because the single primary node handles *all* write operations without being slowed down by read queries, and the replicas handle the read operations, the overall system throughput increases. Additionally, if the primary fails, a replica can be promoted to ensure high availability.

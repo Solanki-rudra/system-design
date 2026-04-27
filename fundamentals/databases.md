@@ -59,7 +59,20 @@ mindmap
 
 ## Database Scaling Strategies
 
-How a database scales depends heavily on its underlying architecture and transactional guarantees.
+How a database scales depends heavily on its underlying architecture and transactional guarantees. When a relational database begins to experience strain, engineers should follow a progressive sequence of scaling strategies, reserving architectural overhauls as a final measure.
+
+### The Relational Database Scaling Progression
+
+When a relational database (like PostgreSQL or MySQL) struggles with increasing traffic (e.g., growing from thousands to millions of users), follow this recommended sequence to scale the system gracefully:
+
+1.  **Add a Cache Layer:** Before touching the database itself, introduce a caching layer (like Redis) in front of it. For read-heavy systems (like a standard To-Do application experiencing slow reads), this is the easiest, most cost-effective first step to significantly increase capacity.
+2.  **Vertical Scaling:** Upgrade the existing database instance (more CPU, RAM, or faster SSDs). This is simple and requires zero code changes.
+3.  **Partitioning:** If a single machine is powerful but queries on massive tables are slow, logically divide the tables into smaller partitions on that same machine.
+4.  **Sharding:** If the physical limits of a single machine are reached, slice the data and distribute it across multiple independent database servers.
+5.  **Read Replicas:** If read traffic across the sharded system is still overwhelming, add read replicas for each individual shard.
+
+**Database Migration as a Last Resort**
+Architects should always exhaust the above strategies before considering a full database migration (e.g., ripping out a relational database to replace it with a NoSQL solution). Database migrations are extremely expensive, carry a high risk of application downtime, require specialized Database Administrators (DBAs), and often force a massive rewrite of the application's data access layer.
 
 ```mermaid
 graph TD
@@ -103,9 +116,12 @@ graph TD
 **The Shard Key**
 When sharding, data is distributed based on a **Shard Key**—an arbitrary field chosen by the developer (e.g., User ID, Geographic Region). Selecting the correct shard key is critical. A poor choice leads to uneven data distribution (data skew), causing certain database clusters to become overloaded "hotspots" while others sit underutilized. For example, sharding by last name assumes names are evenly distributed across the alphabet, which is rarely true.
 
-**Sharding Complexity:**
+**Sharding Complexity & Infrastructure Overhead:**
+Sharding is rarely as simple as just adding another database. It introduces severe systemic complexity:
+*   **Routing & Infrastructure:** A load balancer or intelligent router must be introduced to inspect incoming queries and route them to the correct physical shard. 
+*   **Per-Shard Caching:** To maintain performance, architects typically must provision a separate, dedicated cache layer in front of *each* sharded database.
 *   **NoSQL:** Databases like MongoDB are built to handle sharding natively and automatically, scaling horizontally as load increases.
-*   **Relational (SQL):** Sharding must be manually engineered at the application layer, requiring careful planning to maintain transactional guarantees across disparate machines. Furthermore, complex queries that span multiple tables located on different shards suffer severe performance penalties due to network overhead.
+*   **Relational (SQL):** Sharding must be manually engineered at the application layer, requiring careful planning to maintain transactional guarantees across disparate machines. Furthermore, complex queries (like JOINs) that span multiple tables located on different shards suffer severe performance penalties due to network overhead.
 
 ## ACID Compliance
 
@@ -144,6 +160,9 @@ In a Primary-Replica setup, the system is strictly divided by responsibility:
 
 **The Consistency Trade-off:**
 The critical challenge is that replicas are not guaranteed to be perfectly consistent with the primary at every given millisecond. The brief latency gap between a write occurring on the primary and that update propagating to the replicas means a client might read slightly stale data. In catastrophic failures where the primary dies mid-operation, some recent writes might not have replicated yet, introducing a risk of minor data loss.
+
+**Replicating a Sharded Database:**
+It is important to note the compounding complexity when combining scaling strategies. If an architecture implements read replicas *after* the database has already been sharded, the replication strategy must be applied across all shards. This means every individual sharded database needs its own dedicated primary and replica(s), exponentially multiplying the number of servers, infrastructure costs, and monitoring complexity.
 
 ### Primary-Primary (Master-Master) Architecture
 
