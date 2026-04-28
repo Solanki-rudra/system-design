@@ -18,6 +18,39 @@ When you need real-time, bidirectional communication between a client and a serv
 *   **Low Latency**: Because the connection remains open, it avoids the overhead of establishing a new handshake for every message. This makes it ideal for low-latency applications like chat apps, multiplayer games, or live collaborative editors (like Google Docs).
 *   **Mobile Considerations**: WebSockets can heavily drain battery life on mobile devices because they constantly ping the backend to keep the connection alive (heartbeats). Standard HTTP polling can sometimes be a better middle-ground for mobile applications if updates are infrequent.
 
+### Stateful vs. Stateless: The Scaling Implications of WebSockets
+
+The persistent nature of a WebSocket connection introduces a fundamental architectural constraint: **statefulness**. Understanding this distinction is essential for reasoning about system scalability.
+
+*   **Stateless Architecture (e.g., HTTP/REST):** Every request is entirely self-contained and independent. The server retains absolutely no memory of previous interactions. Any server in a horizontally scaled pool can handle any incoming request because no prior context is required. This means you can freely add or remove servers behind a load balancer without disrupting any client—scaling is essentially frictionless.
+
+*   **Stateful Architecture (e.g., WebSockets):** The server *must* maintain an active, in-memory record of each open connection and its associated context. The connection is "pinned" to a specific server instance. This creates a tight coupling between the client and the particular machine it connected to.
+
+**Why Statefulness Cripples Horizontal Scaling:**
+
+When you need to scale a stateful system (adding new servers or decommissioning old ones), you face a brutal challenge: **connection migration**. Every open WebSocket connection is a live, in-memory session bound to a specific server. You cannot simply kill that server; you must gracefully migrate every one of those active connections to a new server without the user noticing a disruption. This is operationally expensive and architecturally complex, often requiring sticky sessions, connection draining strategies, or distributed session stores.
+
+In contrast, stateless services can be scaled elastically with zero migration overhead—spin up a new instance, point the load balancer at it, and it immediately starts serving traffic.
+
+```mermaid
+graph LR
+    subgraph Stateless["Stateless (HTTP/REST)"]
+        C1[Client] -->|Any Request| LB1[Load Balancer]
+        LB1 --> S1[Server A]
+        LB1 --> S2[Server B]
+        LB1 --> S3[Server C - NEW]
+        style S3 fill:#2d6a4f,stroke:#40916c,color:#fff
+    end
+
+    subgraph Stateful["Stateful (WebSockets)"]
+        C2[Client] -.->|Pinned Connection| S4[Server X]
+        S4 -. "Migration<br/>Required" .-> S5[Server Y - NEW]
+        style S5 fill:#9d0208,stroke:#d00000,color:#fff
+    end
+```
+
+> **Key Takeaway:** This is precisely why Server-Sent Events (SSE) are often preferred over WebSockets when bidirectional communication isn't strictly required. SSE operates over standard HTTP, preserving the stateless, easily scalable nature of the architecture while still enabling real-time server-to-client data push.
+
 ## 3. Server-Sent Events (SSE)
 
 An alternative to WebSockets for specific use cases where communication is heavily one-sided.

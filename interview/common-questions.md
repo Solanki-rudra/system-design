@@ -312,3 +312,36 @@ Each step introduces more complexity and should only be implemented when the pre
 
 **Q: What simple labeling practice separates an average architecture diagram from an elite system design communication tool?**
 **A:** **Labeling the *Purpose***, not just the component name. Instead of merely labeling a generic box "Load Balancer" or "Web Server," you should explicitly clarify what it is actively doing (e.g., *"Load Balancer (TLS Termination & Routing)"* or *"Web Server (Core Business Logic)"*). This instantly explains the system's runtime flow without requiring verbal explanation.
+
+---
+
+## Auto-Save & Feature Design
+
+**Q: What is a key downside of using WebSockets compared to Server-Sent Events in a scalable architecture, and what fundamental architectural concept does it relate to?**
+**A:** WebSockets are inherently **stateful**—they maintain a persistent, in-memory connection pinned to a specific server instance. This statefulness cripples horizontal scaling because when you add or remove servers, you must **migrate all open connections** to new instances, which is operationally difficult and risks user disruption. Server-Sent Events, by contrast, operate over standard HTTP (stateless), meaning any server in the pool can handle any request. Stateless architectures scale elastically with zero migration overhead; stateful architectures require sticky sessions, connection draining, and distributed session stores.
+
+---
+
+**Q: In an auto-save feature design, what trade-off is being made when using a cache layer before writing to the database?**
+**A:** The system is explicitly **biasing towards availability over consistency**. The client receives an instant acknowledgment that the save succeeded (the cache accepted the write), but the data has *not* yet been durably persisted to the primary database. If the cache server crashes during the interval between the cache write and the scheduled database flush, **all buffered auto-save data is permanently lost**. This is the Write-Behind caching trade-off applied to auto-save: you gain speed and responsiveness at the cost of durability risk.
+
+---
+
+**Q: Why might you use a server cache with an auto-update service instead of writing directly to the database for an auto-save feature?**
+**A:** To prevent **database thrashing**—a flood of rapid, small, mostly redundant writes that overwhelm the database with unnecessary I/O. If auto-save fires every 5 seconds while a user is actively typing, the vast majority of those intermediate states are meaningless (the user is still mid-thought). A server cache (e.g., Redis) absorbs these rapid writes instantly. A background **auto-update service** then monitors the cache, waits for the input to stabilize (e.g., 30 seconds of no further changes), and bulk-writes only the *final* version to the database—eliminating potentially dozens of redundant database operations per user action.
+
+---
+
+**Q: What type of database would be more suitable for an auto-save feature that involves a high volume of writes compared to reads?**
+**A:** A **write-optimized database** like **Apache Cassandra**. Auto-save scenarios generate significantly more writes than reads (fundamentally shifting the typical read-heavy ratio of a To-Do app). Cassandra uses an append-only LSM-Tree storage engine that makes writes extremely fast, supports native horizontal sharding, and offers tunable consistency levels. This makes it far more efficient for high-velocity write workloads than traditional relational databases, which must maintain indexes and enforce ACID constraints on every write.
+
+---
+
+**Q: What functional requirements should be considered when designing an auto-save feature for a multi-client application?**
+**A:** Five critical requirements must be addressed:
+1.  **Save Interval:** How often to persist changes. Use **debouncing** (wait for user inactivity, e.g., 2–5 seconds) rather than saving on every keystroke to reduce write volume.
+2.  **Data Granularity:** What to save—the entire document, individual task-level changes, or diffs (deltas). Task-level granularity often strikes the best balance of simplicity and efficiency.
+3.  **Conflict Resolution:** Strategy for handling simultaneous edits from multiple clients. Options range from simple Last-Write-Wins to Optimistic Locking with version numbers to sophisticated CRDTs.
+4.  **Client Notification:** How to inform other connected clients of changes. Server-Sent Events (SSE) are ideal for push notifications without WebSocket scaling complexity.
+5.  **Read-Write Ratio Impact:** Recognize that auto-save fundamentally transforms a read-heavy system into a write-heavy one, requiring different database and caching strategies (e.g., switching from a relational DB to Cassandra for the write path).
+
