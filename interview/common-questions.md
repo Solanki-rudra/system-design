@@ -315,6 +315,41 @@ Each step introduces more complexity and should only be implemented when the pre
 
 ---
 
+## Security & Encryption
+
+**Q: What is the purpose of HTTPS in system security, and why is it generally terminated at certain points rather than maintained throughout the entire request path?**
+
+**A:** HTTPS encrypts data during transit between the client and the server, preventing eavesdropping, tampering, and impersonation. It works by wrapping standard HTTP inside a **TLS (Transport Layer Security)** encrypted tunnel. However, HTTPS is generally **terminated** (decrypted) at specific infrastructure points — most commonly the load balancer or API gateway — because maintaining encryption throughout the entire internal path would be slow and operationally unwieldy. Every server along the way would need the SSL certificate and private key, would have to spend CPU cycles decrypting traffic just to inspect whether the request is relevant to them, and would need to re-encrypt before forwarding. Termination requires a valid SSL certificate at the decryption point.
+
+---
+
+**Q: Why is encryption and decryption considered computationally expensive, and when does this become a real performance concern?**
+
+**A:** All cryptography is computationally expensive **by design** — that is precisely what makes algorithms like AES-256 and SHA-512 resistant to brute-force attacks. The CPU must execute complex mathematical operations for every encrypt/decrypt cycle. While the cost of a single operation is negligible, at the scale of **millions of requests per second**, the aggregate overhead becomes a significant bottleneck. Servers spend measurable CPU time on cryptographic operations instead of processing business logic. This is the primary reason most architectures decrypt traffic at the edge (the load balancer) and let internal services communicate over plain HTTP within the trusted network boundary.
+
+---
+
+**Q: What are the three strategies for SSL/TLS termination in a distributed system, and when would you use each?**
+
+**A:** The three strategies form a spectrum from maximum performance to maximum security:
+1.  **Terminate at the Load Balancer / API Gateway** *(most common)*: The load balancer holds the SSL certificate, decrypts incoming HTTPS traffic, and forwards plain HTTP internally. Best for the vast majority of applications where the internal network is trusted.
+2.  **End-to-End Encryption (Pass-Through):** The load balancer proxies the still-encrypted request all the way through to the final destination service, which holds the certificate and decrypts it. No intermediate service can read the data. Best for highly sensitive, compliance-driven environments (**HIPAA**, **PCI-DSS**, financial transactions) where even internal network segments are considered potentially hostile.
+3.  **Terminate, Inspect, and Re-Encrypt:** The load balancer decrypts, reads/routes the request, then re-encrypts before forwarding. Combines routing intelligence with internal encryption. This is the least common and most computationally expensive approach, used when you need smart routing *and* cannot allow plaintext on the internal network.
+
+---
+
+**Q: In what scenarios would you keep data encrypted throughout the entire request path until it reaches the final service?**
+
+**A:** End-to-end encryption (keeping HTTPS alive through the entire internal path) is warranted when dealing with **highly sensitive data requiring regulatory compliance**: healthcare data under **HIPAA**, financial transactions under **PCI-DSS**, or government-classified information. The core rationale is **zero-trust internal security** — it prevents any intermediate service, logging system, or potentially compromised internal actor from reading or modifying the traffic in transit. Only the final destination service, which holds the private key, can decrypt and process the sensitive information.
+
+---
+
+**Q: What security risk do logging services pose in a system that terminates SSL/TLS early in the request path?**
+
+**A:** Logging services routinely copy request payloads — including headers and bodies — into log databases for debugging and monitoring. If SSL/TLS is terminated at the load balancer and requests contain private information (passwords, credit card numbers, personal health records), the log database becomes a massive, **unencrypted repository of sensitive data** that is broadly accessible to engineers and operations staff. This is a critical, often overlooked vulnerability. Mitigation requires **aggressive log scrubbing** (masking sensitive fields before writing), **structured logging policies** (allowlisting only safe fields), **encryption at rest** for log storage, and **strict access controls** with audit trails on who queries production logs.
+
+---
+
 ## Auto-Save & Feature Design
 
 **Q: What is a key downside of using WebSockets compared to Server-Sent Events in a scalable architecture, and what fundamental architectural concept does it relate to?**

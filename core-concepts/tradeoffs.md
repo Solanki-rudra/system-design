@@ -22,7 +22,37 @@ Determining exactly how consistent your data needs to be is one of the most crit
 
 Security measures inherently introduce latency into a system. Every safeguard, validation step, or encryption cycle requires computational overhead. 
 
+### Why Encryption Is Expensive at Scale
+
+All cryptographic operations are **computationally expensive by design** — that is precisely what makes algorithms like AES-256 and SHA-512 difficult to break. At the level of a single request, the cost of encrypting or decrypting a payload is negligible and completely invisible to the user. However, at the scale of **millions of requests per second**, those tiny per-request costs compound into significant CPU overhead that can become the dominant performance bottleneck in your system.
+
+This is why the question of *where* to terminate encryption is one of the most critical performance-vs-security tradeoffs in distributed architecture.
+
+### The SSL/TLS Termination Spectrum
+
+Where you choose to decrypt HTTPS traffic directly reflects your position on the performance ↔ security spectrum:
+
+```mermaid
+graph LR
+    A["⚡ Maximum Performance"] --- B["Terminate at<br/>Load Balancer"]
+    B --- C["Terminate, Inspect,<br/>Re-Encrypt"]
+    C --- D["End-to-End<br/>Encryption"]
+    D --- E["🔒 Maximum Security"]
+
+    style A fill:#2d6a4f,stroke:#40916c,color:#fff
+    style E fill:#9d0208,stroke:#d00000,color:#fff
+```
+
+*   **Terminate at the Load Balancer (Performance-biased):** Internal traffic flows as plain HTTP. Fast, efficient, and simple — but every internal service sees unencrypted data.
+*   **End-to-End Encryption (Security-biased):** Traffic remains encrypted until the final destination service. Slower and operationally complex, but no intermediate system can read or tamper with the data.
+
+### HIPAA & Compliance-Driven Security
+
 Consider the requirement of **HIPAA compliance** for handling medical data. HIPAA mandates that all sensitive data must be encrypted at rest and in transit. This means the database CPU must execute rigorous encryption and decryption cycles for every single read and write request, fundamentally slowing down the baseline performance. Furthermore, when these encrypted databases need to synchronize or communicate with external microservices, they are forced to perform extensive security handshakes, compounding network latency and architectural complexity. While legally and ethically vital, these safeguards stand as a direct tradeoff against raw system speed.
+
+### The Logging Trap
+
+A frequently overlooked security risk when terminating SSL/TLS early: **logging services**. Most production systems automatically copy request payloads into log databases for debugging. If SSL/TLS is terminated at the edge and requests contain passwords, credit card numbers, or health records, those logs become a massive, unencrypted repository of sensitive data — broadly accessible to anyone with log access. Logs must be aggressively scrubbed of sensitive fields, and access to log databases must be tightly controlled and audited.
 
 **Q: What is the tradeoff when implementing end-to-end encryption for transaction data in a microservices architecture?**
 A: Normally, HTTPS traffic is decrypted at the API gateway or edge to make processing faster within the internal network and avoid computational overhead. However, if strict data protection requires data to be encrypted in-transit throughout the *entire* system until it reaches the database (end-to-end encryption), every single microservice must decrypt the data to process it. This is computationally expensive, significantly increasing latency and impacting overall system performance.
