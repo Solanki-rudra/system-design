@@ -465,3 +465,65 @@ Firewalls sit at the outermost edge of infrastructure — *before* the load bala
 
 Each layer provides a distinct security function, and together they form a defense-in-depth strategy where compromising one layer does not grant access to the entire system.
 
+---
+
+## Asynchronous Workflows & Message Queues
+
+**Q: What are the four core components of an asynchronous workflow architecture, and how does a job flow through them?**
+
+**A:** An asynchronous workflow is built on four cooperating components:
+1.  **Service / API Server** — receives the client request, validates it, and creates a structured **job** (message) describing the work. It returns an immediate acknowledgment (e.g., `202 Accepted`) without waiting for completion.
+2.  **Message Broker** — the routing brain of the pipeline (e.g., RabbitMQ, Kafka, SQS). It receives jobs from services, routes them to the appropriate queue, and manages queue lifecycle.
+3.  **Message Queue(s)** — durable, ordered buffers that hold jobs until a worker is available. Queues decouple producers from consumers, so neither needs to know about the other.
+4.  **Worker Pool** — stateless background processes that continuously pull jobs from the queue and execute them.
+
+The flow is: **Client → Service creates job → Broker routes to queue → Worker pulls and executes → Worker notifies completion.** The key architectural insight is that the client is decoupled from the computation at the moment the service acknowledges the job — the actual work may take minutes, but the user gets an instant response.
+
+---
+
+**Q: What is back pressure in the context of asynchronous workflows, and why is it considered a safety mechanism rather than a failure?**
+
+**A:** Back pressure is a flow-control mechanism that prevents system collapse when producers generate work faster than consumers can process it. When queue depth exceeds a configured threshold, the system pushes back against incoming work by either rejecting new jobs at the service level (returning `503 Service Unavailable` or `429 Too Many Requests`) or having the broker refuse new messages until the queue drains.
+
+Back pressure is a **safety valve, not a failure mode**. A system that gracefully degrades under load — temporarily rejecting excess work and allowing well-designed clients to retry with exponential backoff — is fundamentally more resilient than one that silently accepts unbounded work until memory is exhausted and the entire pipeline crashes catastrophically. Without back pressure, queues grow indefinitely, workers fall further behind, and the system eventually experiences a cascading failure.
+
+---
+
+**Q: What types of tasks are good candidates for asynchronous processing, and what is the general selection criterion?**
+
+**A:** The selection criterion is straightforward: a task should be processed asynchronously when it is **computationally expensive**, **time-consuming**, or **non-interactive** — meaning the user does not need an immediate result to continue their workflow. Specific examples include:
+*   **Video uploads and transcoding** — minutes of CPU time per file.
+*   **Image processing** (resizing, thumbnails, filters) — CPU-bound and scales with resolution.
+*   **Report and PDF generation** — memory-intensive aggregation and rendering.
+*   **Payment processing** — external gateway calls with network latency, retries, and fraud checks.
+*   **LLM queries and AI image generation** — model inference can take seconds to minutes.
+*   **Archive/ZIP preparation** — I/O-bound collection and compression of potentially gigabytes of data.
+*   **Email and notification dispatch** — external SMTP/push services with rate limits that should never block the main request path.
+
+If a request can be served in under 200ms, there is no reason to introduce the complexity of an async pipeline — serve it synchronously.
+
+---
+
+**Q: What is the most common anti-pattern when implementing asynchronous workflows, and why is it dangerous?**
+
+**A:** The most common mistake is **overusing async workflows by routing everything through a queue**. It is tempting because it makes surface-level performance look spectacular — every API call returns instantly! But beneath that fast response time, you have traded simplicity for a fully distributed system that is substantially harder to reason about, debug, and maintain.
+
+Every async pipeline requires you to operate and monitor a message broker, manage queue infrastructure, deploy and scale worker fleets, handle dead-letter queues for failed jobs, implement distributed tracing to debug issues across process boundaries, and design your UI to gracefully handle intermediate "processing" states. If a simple synchronous request-response cycle can satisfy the requirement, that additional complexity is pure cost with zero benefit. **Async workflows should be a deliberate architectural decision for tasks that genuinely cannot complete within an acceptable synchronous response window** — not a default for every operation.
+
+---
+
+**Q: What are the key advantages and disadvantages of asynchronous workflows for system scaling?**
+
+**A:** 
+
+**Advantages:**
+*   **Granular, independent scalability** — workers are stateless consumers; scaling them is as simple as launching more instances with zero session migration.
+*   **Queue specialization** — you can create dedicated queues for different job types (e.g., `video-transcode`, `email-dispatch`), each with worker pools sized to their specific workload.
+*   **Bottleneck isolation** — because each pipeline stage is independently observable, you can identify exactly which component is the constraint and solve it surgically.
+*   **Dynamic resource allocation** — orchestrators like Kubernetes can auto-scale worker pools based on real-time queue depth metrics, scaling up during spikes and down during quiet periods.
+
+**Disadvantages:**
+*   **Significant infrastructure complexity** — you now operate a message broker, multiple queues, and worker fleets, each of which can fail independently.
+*   **Debugging difficulty** — a job that fails silently in a worker at 3 AM is far harder to trace than a synchronous 500 error. Requires structured logging, dead-letter queues, and distributed tracing.
+*   **Diverse failure modes** — lost messages, crashed workers, poison-pill messages (jobs that always fail and block the queue), and broker outages each require explicit handling strategies.
+*   **Eventual consistency** — the client receives an acknowledgment before the work is done, creating a temporary inconsistent state that the UI and API must handle gracefully.
