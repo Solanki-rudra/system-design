@@ -380,3 +380,88 @@ Each step introduces more complexity and should only be implemented when the pre
 4.  **Client Notification:** How to inform other connected clients of changes. Server-Sent Events (SSE) are ideal for push notifications without WebSocket scaling complexity.
 5.  **Read-Write Ratio Impact:** Recognize that auto-save fundamentally transforms a read-heavy system into a write-heavy one, requiring different database and caching strategies (e.g., switching from a relational DB to Cassandra for the write path).
 
+---
+
+## Authentication, Authorization & Security
+
+**Q: What is the difference between authentication and authorization in system design, and how do the HTTP status codes differ?**
+
+**A:** **Authentication** verifies *who* someone is — confirming identity through credentials like email and password. **Authorization** verifies *what* someone is allowed to do — checking whether the authenticated user has sufficient permissions for a specific action. Authentication answers "Who are you?" while authorization answers "What can you do?" They are sequential: authorization cannot happen without authentication first. The HTTP status codes reflect this: a `401 Unauthorized` actually means "unauthenticated" (identity not proven), while `403 Forbidden` means "authenticated but not authorized" (identity known, permissions insufficient).
+
+---
+
+**Q: What is a sticky session, why does it exist, and why is it considered architecturally dangerous?**
+
+**A:** A **sticky session** (session affinity) is a load balancer configuration that forces every request from a specific client to always route to the same backend server. It exists because **session-based (stateful) authentication** stores session data in a specific server's memory. Without sticky sessions, a user could be routed to a different server that has no knowledge of their session, effectively logging them out mid-interaction.
+
+However, sticky sessions are architecturally dangerous for several reasons:
+1. **Server failure = user loss** — if the pinned server crashes, all users bound to it lose their sessions entirely.
+2. **Uneven load distribution** — high-traffic users can cluster on one server while others sit idle.
+3. **Scaling pain** — new servers remain underutilized because existing users stay pinned to old servers; removing servers forcibly disconnects users.
+4. **Violates horizontal scaling principles** — the core promise of horizontal scaling is that *any server can handle any request*, and sticky sessions break this.
+
+This is why authentication is better placed at the edge (API gateway) using stateless tokens (JWTs) rather than in individual web servers.
+
+---
+
+**Q: What are the trade-offs between using short-lived JWT tokens versus session-based authentication?**
+
+**A:** This is one of the most critical authentication architecture decisions:
+
+**Short-lived JWT tokens:**
+*   ✅ **Stateless** — the token carries all identity information, so any server in the cluster can validate it without querying a session store. This enables frictionless horizontal scaling.
+*   ✅ **Microservice-friendly** — each service independently verifies the token using the auth service's public key, requiring zero network calls.
+*   ❌ **Cannot be instantly revoked** — once issued, a JWT is valid until it expires. If compromised, the attacker has a window (30 seconds to a few minutes) to use it.
+*   ❌ **More complex** — requires implementing refresh token flows, key rotation, and token signing infrastructure.
+
+**Session-based authentication:**
+*   ✅ **Instant revocation** — destroy the session server-side and the user is immediately de-authenticated. Zero vulnerability window.
+*   ✅ **Simpler to implement** — sessions map intuitively to real-world behavior (login → session → logout).
+*   ❌ **Stateful** — session data must live on the server, creating coupling between users and specific server instances (requiring sticky sessions or a shared session store like Redis).
+*   ❌ **Poor microservice fit** — every service would need to query a centralized session store, creating a single point of failure and performance bottleneck.
+
+**Bottom line:** JWTs are preferred for distributed systems and microservices. Session-based auth is acceptable for simple monoliths or when instant revocation is a hard requirement.
+
+---
+
+**Q: Why is stateless authentication preferred for distributed systems and microservice architectures?**
+
+**A:** Stateless authentication (e.g., JWTs) is preferred because it eliminates server-side session state, which directly enables the core benefits of distributed systems:
+1.  **Elastic scaling** — servers can be added or removed freely. No session migration or sticky sessions required.
+2.  **Automatic failover** — if a server goes down, requests seamlessly route to any other healthy server without disrupting user sessions.
+3.  **Independent service verification** — in a microservice architecture where dozens of services need to verify identity, each service validates the JWT signature locally using the issuer's public key. No centralized session store query is needed, eliminating a single point of failure.
+
+However, stateful (session-based) authentication has its own merits: it is simpler to implement, allows instant credential invalidation (critical for compromised accounts), and doesn't require complex token refresh workflows. The choice depends on the system's scale and security requirements.
+
+---
+
+**Q: What are the two main security models for microservice architectures, and what are their trade-offs?**
+
+**A:** The two models sit at opposite ends of a trust spectrum:
+
+1.  **Castle-and-Moat (Perimeter Defense):** Authentication happens *only at the edge* (API gateway). Once inside the internal network, services communicate freely without further verification. This is simpler to build and has lower internal latency, but is dangerously vulnerable to **social engineering attacks** and **insider threats**. If an attacker breaches the perimeter, they gain unrestricted access to every internal service, and the breach can go undetected since there are no internal checkpoints. *Example: Traditional corporate intranets with VPN access granting implicit trust.*
+
+2.  **Zero Trust (Explicit Verification):** *Every* request, including internal service-to-service calls, must carry explicit proof of authorization. No service implicitly trusts another. This massively reduces blast radius (a compromised service cannot access others without credentials) and creates a full audit trail, but is heavier to implement, adds latency to every hop, and requires sophisticated infrastructure (service meshes like **Istio**, or **mTLS** certificates). *Examples: Google's BeyondCorp, Netflix's mTLS between all microservices, AWS IAM role-based service permissions.*
+
+---
+
+**Q: What is a firewall, and how does it differ from authentication in a system's security architecture?**
+
+**A:** A **firewall** is a network security device that monitors and controls incoming/outgoing network traffic based on predetermined rules (IP addresses, ports, protocols). It operates at the **network layer**, deciding which traffic is even allowed to *reach* your application. Authentication operates at the **application layer**, deciding which *users* are allowed to use your application.
+
+Firewalls sit at the outermost edge of infrastructure — *before* the load balancer — and act as the first line of defense. They filter out malicious traffic (DDoS attacks, blacklisted IPs, unauthorized port access) before it ever touches the application. Modern **Web Application Firewalls (WAFs)** like **AWS WAF** and **Cloudflare** also operate at Layer 7, inspecting HTTP request content to block SQL injection, XSS, and API abuse.
+
+**Key distinction:** Firewalls control *which traffic enters your network*. Authentication controls *which users access your application*. Both are essential components of a defense-in-depth security strategy.
+
+---
+
+**Q: In a modern distributed system, what is the correct order of security layers that an incoming client request passes through?**
+
+**A:** The request passes through layers in this order:
+1.  **Firewall / WAF** — blocks obviously malicious traffic (DDoS, SQL injection, blacklisted IPs) at the network edge.
+2.  **Load Balancer** — terminates TLS encryption, distributes clean traffic across healthy servers.
+3.  **API Gateway** — handles **authentication** (verifies JWT signature and expiry) and **authorization** (checks user role/permissions for the requested endpoint).
+4.  **Microservices** — process the authorized request. In zero-trust architectures, inter-service calls also carry service tokens or use mTLS for mutual authentication.
+
+Each layer provides a distinct security function, and together they form a defense-in-depth strategy where compromising one layer does not grant access to the entire system.
+
