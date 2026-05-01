@@ -527,3 +527,41 @@ Every async pipeline requires you to operate and monitor a message broker, manag
 *   **Debugging difficulty** — a job that fails silently in a worker at 3 AM is far harder to trace than a synchronous 500 error. Requires structured logging, dead-letter queues, and distributed tracing.
 *   **Diverse failure modes** — lost messages, crashed workers, poison-pill messages (jobs that always fail and block the queue), and broker outages each require explicit handling strategies.
 *   **Eventual consistency** — the client receives an acknowledgment before the work is done, creating a temporary inconsistent state that the UI and API must handle gracefully.
+
+---
+
+## Video Upload Systems
+
+**Q: When scoping a video upload system, what file specification constraints must be established first, and why do they drive the architecture?**
+
+**A:** Three constraints must be locked down before any design begins:
+1.  **Supported formats** (e.g., MP4, MKV) — determines which codec libraries and processing pipelines are required.
+2.  **Maximum resolution** (e.g., up to 4K) — directly dictates transcoding worker compute requirements and output storage size. A 4K pipeline requires significantly more CPU per video than 1080p.
+3.  **File size cap** (e.g., 4 GB max) — determines the upload ingestion strategy. Files above ~100 MB cannot be reliably uploaded as a single HTTP request; a **multipart/chunked upload** strategy becomes mandatory, enabling resumability and parallel chunk transfer. These aren't just product decisions — each one has direct, non-negotiable architectural implications.
+
+---
+
+**Q: Beyond accepting a file, what processing features must be designed for in a video upload service, and what is the most commonly overlooked one?**
+
+**A:** A production video upload service requires at minimum:
+*   **Thumbnail generation** — extracting a representative frame at upload time for display in feeds.
+*   **Transcoding to multiple resolutions** — generating 1080p, 720p, 360p variants for adaptive bitrate streaming.
+*   **Video trimming / preprocessing** — basic validation and optional user-requested cutting before encoding.
+*   **Caption/subtitle generation** — routing the audio track to a transcription service (e.g., AWS Transcribe, OpenAI Whisper).
+*   **Audio track processing** — the most commonly overlooked step.
+
+The reason audio is commonly missed is that developers think of a video file as a single atomic unit. In reality, video containers like MP4 and MKV are *multiplexed streams* — they bundle separate video and audio tracks into one file. During transcoding, the audio must be **demuxed**, re-encoded independently (e.g., to AAC or Opus), then **remuxed** back into the output. Designing workers without this step produces silent output videos — a subtle bug that only surfaces in production when real files are processed.
+
+---
+
+**Q: What is the correct way to estimate upload throughput for a video service, and what architectural decision does the result immediately drive?**
+
+**A:** The estimation is a simple multiplication:
+
+> `Uploads per second = (Total users × uploads per user per day) ÷ 86,400`
+
+For example: 1,000,000 users × 1 upload/day ÷ 86,400 ≈ **11.6 uploads/second** (write throughput). At 1 GB average file size, that is roughly **11.6 GB/second** of raw ingestion. This number immediately drives two decisions:
+1.  **Object storage is mandatory** — a relational database cannot sustain multi-GB write throughput; S3/GCS is purpose-built for it.
+2.  **The upload API must be I/O-bound optimized** — Node.js or Go are preferred over thread-per-request models (like traditional Java servlets) because they handle streaming large file uploads without blocking threads.
+
+This is why estimation always precedes architecture — the math tells you *which category of solution* you need before you make any component choices.

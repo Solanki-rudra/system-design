@@ -57,6 +57,30 @@ A common area of confusion is when a single relational database hits its limits 
 
 **Conclusion:** 4.5 GB of storage per month is extremely small. In a year, that's only ~54 GB. This proves that a To-Do app with 100,000 users will never require database sharding for storage reasons; a single standard database will easily suffice for a decade.
 
+## Storage Calculation Example: A Video Upload Service
+
+**Scenario:** Calculate the daily storage requirement for a basic video upload service.
+
+**Assumptions:**
+*   **Users:** 1,000 active users.
+*   **Usage:** Each user uploads 1 video per day.
+*   **Size:** Average raw video file is 1 GB.
+
+**The Math Step-by-Step:**
+1.  **Total Uploads Per Day:**
+    `1,000 users × 1 upload/user = 1,000 uploads/day`
+2.  **Total Raw Storage Per Day:**
+    `1,000 uploads × 1 GB/upload = 1,000 GB/day = 1 TB/day`
+
+**Conclusion:** 1 TB of new raw data *per day* is a fundamentally different architectural problem than 4.5 GB per month for a Todo app. This immediately signals:
+- **Object Storage** (like AWS S3) is mandatory — relational databases cannot store binary blobs at this scale cost-effectively.
+- **Database sharding** may be needed for metadata within weeks, not years.
+- **Worker scaling** for transcoding must account for processing hundreds of GB daily.
+
+> The critical lesson: the same estimation methodology applied to different data types can shift the architecture by orders of magnitude. Always estimate *before* committing to a design.
+
+---
+
 ## Data Access Speeds (Latency Hierarchy)
 
 When making design choices, you don't need to memorize exact microsecond latencies (e.g., L1 cache is 0.5ns). You only need to understand the relative *hierarchy* of speeds.
