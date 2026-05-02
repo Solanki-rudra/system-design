@@ -565,3 +565,100 @@ For example: 1,000,000 users × 1 upload/day ÷ 86,400 ≈ **11.6 uploads/second
 2.  **The upload API must be I/O-bound optimized** — Node.js or Go are preferred over thread-per-request models (like traditional Java servlets) because they handle streaming large file uploads without blocking threads.
 
 This is why estimation always precedes architecture — the math tells you *which category of solution* you need before you make any component choices.
+
+---
+
+**Q: What are the six core entities in a video processing system, and why must they each be modeled separately?**
+
+**A:** The six canonical entities are: **User** (the uploader and owner), **Video** (the central object holding references to raw and processed files), **Metadata** (title, resolution, format — attached separately since raw video files carry none of this), **Thumbnail** (preview frames extracted at upload time), **Audio Track** (the demuxed audio stream, processed independently), and **Manifest** (the adaptive bitrate descriptor). Each must be modeled as a distinct entity because they follow different lifecycles, have different storage requirements, and different parts of the system need to access them independently. Collapsing them into a single monolithic "video" object is a common design mistake that causes cascading failures when any one stage fails.
+
+---
+
+**Q: What is the purpose of a manifest in a video streaming system, and what would happen if the system skipped generating it?**
+
+**A:** A manifest (HLS `.m3u8` or DASH `.mpd`) is a small descriptor file generated after transcoding completes. It lists every available resolution variant of the video — with their bitrates and storage URLs — enabling the client player to perform **adaptive bitrate streaming (ABR)**. The player fetches the manifest first, evaluates its current network conditions and screen resolution, then selects the best variant to stream. It re-evaluates continuously mid-playback and switches tiers without buffering. If the manifest is skipped, the system cannot do ABR: you must pick a single fixed resolution for all devices, which means either wasting bandwidth streaming 4K to a mobile phone, or delivering poor quality to a 4K TV. The manifest is what makes a streaming platform genuinely device-agnostic.
+
+---
+
+**Q: Why must upload failure handling be an explicit design concern in a video service, and what mechanisms address it?**
+
+**A:** Large video file uploads are fundamentally fragile — they are slow, span long time windows, and travel over networks that can degrade or disconnect at any point. A system that assumes uploads succeed silently loses data without the user knowing. The system must address this through four explicit mechanisms: (1) **State tracking** — maintain a status field in the metadata database (`PENDING → UPLOADING → UPLOAD_COMPLETE → PROCESSING → READY`) so the system can detect stalled or abandoned uploads; (2) **Explicit acknowledgment** — issue `202 Accepted` only after durable storage write is confirmed, not merely when the API receives the request; (3) **Chunk-level resumability** — multipart upload APIs (S3, GCS) allow re-transmitting only failed chunks rather than the entire file; (4) **Completion notification** — push a Server-Sent Event or webhook when processing completes, so users receive explicit confirmation rather than having to guess.
+
+---
+
+**Q: Why must metadata storage and video blob storage be kept in separate systems, and how does violating this rule create orphaned files?**
+
+**A:** Object storage (e.g., S3) is purpose-built for large binary blobs — it is cheap, durable, and infinitely scalable for video files, but it has **no query engine**. You cannot ask it "show me all videos belonging to user X." A relational database is purpose-built for structured, indexed, queryable data — but storing a multi-GB video file as a database blob is prohibitively slow and expensive.
+
+An **orphaned file** is created by a specific order-of-operations failure: the blob is written to object storage first, and then the server crashes before it can write the corresponding metadata record to the database. The video file now exists in S3 — occupying storage, accruing cost — but the system has no database record for it. No user ID, no title, no status. The application cannot list it, play it, or delete it. It is effectively invisible.
+
+The fix is to **always write the metadata record first**, with a `PENDING` status. Even if the blob upload fails after this, the metadata anchor exists — the system can detect the stalled upload, surface an error, retry, or purge the stale record. The metadata record must be created before the blob is stored, not after.
+
+---
+
+**Q: What is the role of a Notification Service in a video upload workflow, and why is it architecturally preferable to having workers notify clients directly?**
+
+**A:** The Notification Service is the coordination backbone of the upload workflow. It has three responsibilities: (1) watch for successful raw upload completion and notify the client that the file was received; (2) trigger the processing pipeline by enqueuing a job; (3) watch for processing worker completion and notify the client that the video is ready to play.
+
+Having workers notify clients directly couples two systems that have no business knowing about each other: compute workers (responsible for transcoding) and client communication (responsible for streaming SSEs or webhooks). A dedicated Notification Service decouples these layers entirely — workers emit a completion event, the Notification Service handles all client communication. This means workers can be scaled, replaced, or refactored without ever touching the notification logic.
+
+---
+
+**Q: Why is understanding the user flow the critical first step in a system design interview, before any architecture is discussed?**
+
+**A:** The user flow is a *requirements discovery mechanism*. By narrating what a user does step by step — opening the app, triggering an action, waiting, receiving a result — you surface every component the system must contain and every failure mode it must handle. Without this, two failure modes emerge: you over-engineer components that are rarely used (e.g., a real-time update system for an action that happens once per session), and you miss critical components entirely (e.g., the notification service, the cleanup job for stalled uploads, the status polling endpoint). The user flow forces you to ask the right questions — "what does the user see while the video is processing?" reveals the need for a status field and a notification mechanism — before you commit to any architecture.
+
+---
+
+**Q: When designing the `POST /videos` endpoint, what must the request body include and what should be deliberately excluded?**
+
+**A:** The request body must include: (1) the **video file** itself (as multipart form-data), and (2) **user-provided metadata** — specifically the title. What it should *not* include are technical file properties like content type, resolution, codec, or byte size. Those are **system-derived values** — the server reads them from the file at ingestion time and stores them in the metadata database. Asking the client to supply them is wrong for two reasons: the client could supply incorrect values (a malformed content-type that mismatches the actual file), and it leaks internal implementation details into the API contract. The API surface should reflect only what the user actively decides; everything else is the server's responsibility.
+
+---
+
+**Q: Why must source video storage contain only raw, unprocessed video, and what goes wrong if you process the file during upload?**
+
+**A:** The source storage is an **immutable original** — like a photographic negative. The upload API's only job is ingestion: receive the file, store it durably, create a metadata record. The Processing Service's job is to pull it apart: demux audio, transcode to multiple resolutions, generate thumbnails. Mixing these responsibilities at upload time breaks two things: (1) **reprocessability** — if the processing pipeline has a bug, or requirements change (e.g., adding a new 8K output tier), you need to re-run processing against the original. If the source was modified during upload, that original is gone and cannot be recovered. (2) **separation of concerns** — processing logic becomes split across two services, making it harder to debug, test, and update. Centralizing all processing in the Processing Service ensures there is one place to fix bugs and one source of truth for what "processed" means.
+
+---
+
+**Q: Why must source video storage and converted video storage be kept in separate buckets, and what different rules govern each?**
+
+**A:** The two buckets serve fundamentally different purposes with different access requirements and lifecycles:
+
+*   **Source storage** must be **private** — only the Processing Service workers should access it. It holds the raw, unvalidated upload which hasn't been normalized or safety-checked by the pipeline. Exposing it publicly would bypass all the work the pipeline does. Crucially, the source can be **deleted after conversion** is verified complete — raw 4K source files are dramatically larger than their processed counterparts, making deletion a meaningful cost-saving policy.
+*   **Converted storage** holds all transcoded output variants (4K, 1080p, 720p, 360p), thumbnails, and manifests. It must be **publicly accessible via CDN** — this is the actual delivery layer that viewers stream from. These assets are permanent.
+
+Mixing the two creates three problems: security risk (public access to unvalidated raw files), lifecycle confusion (which files are safe to delete?), and architectural ambiguity (workers need to know which bucket to read from and write to).
+
+---
+
+**Q: Why should video conversion tasks be delegated to a worker pool rather than a single conversion service, and how does parallel job processing work?**
+
+**A:** Video transcoding is CPU-intensive and, for a single upload, requires producing multiple output formats (4K, 1080p, 720p, 360p) — a process that can take several minutes per video. A single service processing these sequentially is a catastrophic bottleneck: every upload queues behind the current one, and latency grows linearly with upload volume.
+
+A **worker pool** solves this by treating each conversion format as an independent, parallel job. When a video is uploaded, the system enqueues *four separate jobs* — one per output resolution. Four workers process them simultaneously, in parallel. Workers are stateless consumers: they pull a job, execute it, and pull the next. When upload volume spikes, the queue depth rises and the orchestrator (Kubernetes) launches additional worker instances. During quiet periods, workers scale to zero. No single component becomes the rate limiter.
+
+---
+
+**Q: What information should be passed to worker processes in a video conversion job message, and why is passing the actual video binary dangerous?**
+
+**A:** A worker job message should be a small, lightweight envelope containing three things: (1) **the job specification** (what to do — e.g., `transcode_to_1080p`), (2) **a storage reference** (where to find the source file — e.g., `s3://source-bucket/videos/abc123.mp4`), and (3) **a completion callback** (who to notify when done).
+
+The actual video binary must *never* be embedded in the message. Message queues are designed for small, fast-moving messages — not multi-gigabyte payloads. Embedding video data would: exhaust queue memory, make each worker stateful (holding large binary data in memory while processing), and create a catastrophic failure mode if a worker crashes mid-hold. Passing a storage reference instead means the worker fetches the file directly from object storage only when it's ready to process — keeping the queue lightweight, workers stateless, and the architecture resilient to individual component failures.
+
+---
+
+**Q: Why is it dangerous to have the Notification Service track the completion status of multiple in-flight conversion jobs internally, and what is the correct alternative?**
+
+**A:** If the Notification Service holds job state in memory — e.g., maintaining a counter "video X has completed 2 of 4 conversion formats" — a crash destroys that state entirely. Workers don't retain completion records either: they emit a completion event and immediately move on to the next job. After a crash, the system has no durable record of which formats finished and which are still pending. Coordination is broken with no way to resume.
+
+The correct design is to have each worker **write its completion status back to the metadata database** (updating the video's status record) as it finishes its job. The database becomes the single durable source of truth for job progress. The Notification Service then *reads* from the database to check whether all conversion jobs are complete — it holds no state itself. If the Notification Service crashes and restarts, it can simply re-query the database and resume from a correct, durable view of the world.
+
+---
+
+**Q: What graph structure should a video upload and processing system form, and what failure modes does violating this structure create?**
+
+**A:** The system should form a **DAG (Directed Acyclic Graph)** — a one-directional flow from client → API → storage/queue → workers → converted storage/database → notification service → client, with no cycles. Each component reads from the appropriate upstream source and writes to its downstream target only.
+
+If a cycle exists — for example, a worker calls back to the Notification Service which calls a worker again — a single event can trigger an infinite loop, creating runaway resource consumption or duplicate conversion jobs. Beyond infinite loops, cycles make the system impossible to debug: circular causality means a failure at any node could be caused by itself, making root-cause analysis intractable. A DAG with clear, segmented stages means you can trace any failure to a specific node in the graph. Each component should **pull** what it needs from storage or a queue, rather than being **pushed** to directly by another service, preventing tight temporal coupling and making every component independently scalable.

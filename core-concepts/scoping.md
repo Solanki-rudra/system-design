@@ -28,3 +28,21 @@ A: Setting strict data size limits is critical for several reasons:
 A: Every component touching the network or database needs boundaries:
 - **Inputs (Long URLs):** Need limits (e.g., 3 kilobytes) due to backend database storage constraints and to prevent payload abuse.
 - **Outputs (Short URLs):** Need limits (e.g., 1 kilobyte or 1000 characters) to maintain their core functional purpose (being short and shareable) and to guarantee highly efficient index storage in high-velocity caches/databases.
+
+## Understand the User Flow Before Touching the Architecture
+
+One of the most common interview mistakes is jumping straight to boxes and arrows before understanding *how a user actually experiences the system*. The temptation is to start drawing architecture immediately because it feels productive, but without anchoring that diagram to a concrete user journey, you risk two critical errors:
+
+1. **Overdesigning the wrong part:** You might build an elaborate real-time notification system for an action that happens once per session, while completely ignoring the critical upload path that happens millions of times per day.
+2. **Missing entire components:** Without walking through the user flow step by step, entire services (like a notification service, a status polling mechanism, or a cleanup job for failed uploads) simply never occur to you.
+
+### How to Apply This in Practice
+
+Before drawing a single box, narrate the user's journey out loud:
+
+> "A user opens the app and clicks Upload. They select a file. What happens? The file goes somewhere. Who confirms it arrived? What does the user see while it's processing? How do they know when it's done? What happens if they close the tab mid-upload?"
+
+Each of these questions reveals a distinct architectural component or decision. The answers define your bottlenecks before you write a line of design. This is domain-driven scoping — understanding the *problem space* before the *solution space*.
+
+**Q: Why is understanding the user flow the first step in system design, and what happens when you skip it?**
+A: The user flow acts as a requirements discovery mechanism. By tracing what a user does step by step — from triggering an action to seeing a result — you surface every component the system must contain and every failure mode it must handle. Skipping this step causes two failure modes: you over-engineer components that don't matter (e.g., complex caching for data that changes once a day), and you completely miss components that are essential (e.g., the notification service that tells the user their upload completed). The user flow forces you to ask the right questions before committing to architecture.
