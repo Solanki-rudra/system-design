@@ -66,3 +66,93 @@ graph TD
     IntLB --> DB1
     IntLB --> DB2
 ```
+
+---
+
+## 4. CDN Placement Convention
+
+A Content Delivery Network (CDN) sits at the outermost edge of the architecture — **between the internet and your origin load balancer**. It intercepts requests for static assets (images, videos, CSS, JS) and serves them from geographically distributed edge nodes, so those requests never reach your origin servers.
+
+```mermaid
+graph TD
+    Client((Client App))
+
+    subgraph Internet Edge
+        CDN[CDN Edge Node\ne.g., CloudFront / Akamai]
+        EdgeLB[Origin Load Balancer\nAuth & Route Routing]
+    end
+
+    subgraph Origin Cluster
+        W1[Web Server 1]
+        W2[Web Server 2]
+        OS[(Object Storage\ne.g., AWS S3)]
+    end
+
+    Client -->|Static assets\ne.g., /images, /videos| CDN
+    CDN -.->|Cache Miss: fetch once\nthen cache at edge| OS
+    Client -->|Dynamic API calls\ne.g., /api/user| EdgeLB
+    EdgeLB --> W1
+    EdgeLB --> W2
+```
+
+**Rule:** Label CDN cache hit vs. cache miss flows explicitly. A cache hit never reaches origin. A cache miss fetches from origin once, then caches at the edge for subsequent requests.
+
+---
+
+## 5. Microservice Architecture Conventions
+
+When drawing a microservice system, use these conventions to keep the diagram readable:
+
+**Service Boundaries:**
+- Each microservice gets its **own box** and its **own dedicated data store**. Services never share a database — they communicate only via APIs or events.
+- Label the inter-service communication method: `REST`, `gRPC`, `Event` (async).
+
+**Gateway Pattern:**
+- Always draw an **API Gateway** at the entry point. It handles routing, auth, rate limiting, and protocol translation — clients never call internal services directly.
+
+```mermaid
+graph TD
+    Client((Client))
+    GW[API Gateway\nAuth + Routing + Rate Limiting]
+    
+    subgraph User Service
+        US[User Service]
+        UDB[(User DB\nPostgreSQL)]
+    end
+    
+    subgraph Feed Service
+        FS[Feed Service]
+        FDB[(Feed DB\nRedis / Cassandra)]
+    end
+    
+    subgraph Notification Service
+        NS[Notification Service]
+        MQ[Message Queue\nKafka]
+    end
+
+    Client -->|HTTPS| GW
+    GW -->|REST| US
+    GW -->|REST| FS
+    FS -->|Event: FeedUpdated| MQ
+    MQ --> NS
+    US --> UDB
+    FS --> FDB
+```
+
+---
+
+## 6. Quick Component Legend
+
+Use consistent symbols across your diagrams for immediate readability:
+
+| Symbol | Component |
+|:---|:---|
+| `((Circle))` | Client / User / External System |
+| `[Rectangle]` | Server, Service, or Worker |
+| `{Diamond}` | Load Balancer or Decision Point |
+| `[(Cylinder)]` | Database or Persistent Storage |
+| `[(Cache)]` | Cache (label with Redis/Memcached) |
+| `[/Parallelogram/]` | Event / Message / Queue |
+| Solid arrow `-->` | Synchronous request |
+| Dashed arrow `-.->` | Asynchronous / optional / fallback |
+| `subgraph` box | Cluster, region, or service boundary |

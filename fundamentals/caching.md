@@ -52,3 +52,39 @@ When a cache fills up, it must decide which existing data to remove using an evi
     *   *Implementation Note:* This is most commonly implemented using a **Doubly Linked List** combined with a Hash Map, allowing for highly efficient $O(1)$ tracking and removal of the least recently used items.
 *   **LFU (Least Frequently Used):** Evicts the items that have been requested the fewest number of times overall, tracking the absolute frequency rather than just the recency.
 *   **FIFO (First In, First Out):** A simple queue approach where the oldest data added to the cache is the first to be removed, regardless of how often or recently it was accessed.
+
+---
+
+## Caching Strategies: How Data Gets Into the Cache
+
+Knowing *when* and *how* data is written to the cache is as important as knowing *when* to evict it. These are called **caching strategies** and they live in the application layer (not the cache layer itself). For detailed Mermaid diagrams and trade-off analysis of each strategy, see [`patterns/caching-patterns.md`](../patterns/caching-patterns.md).
+
+**Quick summary of the four main strategies:**
+
+| Strategy | When Cache is Populated | Consistency | Best For |
+|:---|:---|:---|:---|
+| **Cache-Aside** | On cache miss — app reads from DB, then writes to cache | Eventual | General purpose; most common |
+| **Write-Through** | On every write — app writes to cache AND DB synchronously | Strong | Freshness critical, read-heavy |
+| **Write-Behind** | On write — app writes to cache only; async DB flush later | Eventual | High write throughput (analytics, logging) |
+| **Refresh-Ahead** | Background process proactively refreshes before TTL expires | Near-real-time | Predictable, frequently accessed data |
+
+---
+
+## Cache Warming
+
+A **cold cache** is a freshly deployed or restarted cache with no data. On startup, all requests will be cache misses, sending a sudden spike of load to the database. This is known as **cache cold start**.
+
+**Mitigation strategies:**
+*   **Lazy warming (Cache-Aside):** Accept the cold start penalty. The cache will gradually warm up as requests come in and data gets populated.
+*   **Pre-warming:** Before deploying, run a script that pre-populates the cache with the most commonly accessed keys. Requires knowing your hot data patterns in advance.
+*   **Gradual rollout:** Deploy with traffic slowly ramping up (e.g., canary deployment), giving the cache time to warm before it receives full production traffic.
+
+---
+
+## When NOT to Cache
+
+Caching is not a universal solution. Avoid caching when:
+- **Data changes every request:** Caching a value that changes every millisecond provides no benefit and wastes memory.
+- **Data is user-specific and low-volume:** If every user has a unique result that nobody else can reuse, the cache hit rate will be near 0%.
+- **Consistency is non-negotiable:** Financial balances, inventory counts, and medical records must always reflect the latest write. Caching these risks showing dangerously stale values.
+- **The bottleneck is compute, not data retrieval:** If your slowness comes from complex calculations, not database reads, a cache helps nothing. Consider instead memoization or pre-computation.

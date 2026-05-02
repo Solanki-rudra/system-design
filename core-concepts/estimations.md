@@ -96,3 +96,65 @@ From fastest to slowest:
 *   Caches (like Redis) store data in **RAM**.
 *   Databases (like PostgreSQL) permanently store data on **Disk** (SSD/HDD).
 *   Because RAM is mathematically orders of magnitude faster than Disk, retrieving data from a Cache will always be drastically faster than retrieving it from a Database.
+
+---
+
+## RPS (Requests Per Second) Estimation Walkthrough
+
+RPS is the most important throughput metric in system design. Here is how to estimate it from scratch:
+
+**Formula:**
+```
+RPS = (DAU × avg_requests_per_user_per_day) ÷ 86,400
+```
+*(86,400 = number of seconds in a day)*
+
+**Example: Estimating RPS for a Social Media Feed**
+
+**Assumptions:**
+*   **Daily Active Users (DAU):** 10,000,000 (10 million)
+*   **Avg requests per user per day:** 50 (scrolling, loading feed, refreshing)
+*   **Read/Write ratio:** 90:10 (mostly reads)
+
+**The Math:**
+1.  **Total requests per day:**
+    `10,000,000 users × 50 req/user = 500,000,000 requests/day`
+2.  **Average RPS (all requests):**
+    `500,000,000 ÷ 86,400 ≈ 5,800 RPS`
+3.  **Read RPS (90%):**
+    `5,800 × 0.90 ≈ 5,200 read RPS`
+4.  **Write RPS (10%):**
+    `5,800 × 0.10 ≈ 580 write RPS`
+
+**Conclusion:** ~5,200 read RPS immediately signals:
+- A caching layer (Redis) is **mandatory** — the database alone cannot handle 5,200 reads/sec efficiently.
+- Read replicas are needed to distribute the read load.
+- The write path at ~580 RPS is manageable with a single primary DB initially.
+
+> **Peak Traffic Rule of Thumb:** Real traffic is never evenly distributed. Peak traffic is typically **2–3× the average**. Always design for peak, not average: `Peak RPS ≈ 5,200 × 3 = 15,600 read RPS`.
+
+---
+
+## Quick Reference: Estimation Cheatsheet
+
+| Metric | Common Scale | Implication |
+|:---|:---|:---|
+| < 1,000 RPS | Small/Medium | Single server, single DB likely sufficient |
+| 1,000 – 10,000 RPS | Medium/Large | Load balancer + caching layer needed |
+| 10,000 – 100,000 RPS | Large | Horizontal scaling, read replicas, CDN |
+| > 100,000 RPS | Web-scale | Sharding, global distribution, dedicated infra |
+| < 100 GB storage | Small | Single DB, no sharding needed |
+| 100 GB – 1 TB storage | Medium | Start considering partitioning |
+| > 1 TB storage | Large | Sharding or object storage required |
+| > 10 TB storage | Massive | Distributed object storage (S3), data lakes |
+
+### Useful Constants to Memorize
+| Unit | Value |
+|:---|:---|
+| Seconds per day | 86,400 |
+| Seconds per month | ~2,600,000 (~2.6M) |
+| Seconds per year | ~31,500,000 (~31.5M) |
+| 1 KB | 1,000 bytes |
+| 1 MB | 1,000,000 bytes |
+| 1 GB | 1,000,000,000 bytes |
+| 1 TB | 1,000,000,000,000 bytes |

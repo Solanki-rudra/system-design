@@ -32,8 +32,72 @@ graph TD
     B --> B3[Strict Physical Hardware Limits]
     B --> B4[High Risk: Single Point of Failure]
 
-    C --> C1[Add MORE commodity machines]
-    C --> C2[Infinite Capacity Ceiling]
-    C --> C3[High Resiliency / Fault Tolerant]
-    C --> C4[Complex Orchestration Required <br/> e.g., Zookeeper, Load Balancers]
+    C ---> C1[Add MORE commodity machines]
+    C ---> C2[Infinite Capacity Ceiling]
+    C ---> C3[High Resiliency / Fault Tolerant]
+    C ---> C4[Complex Orchestration Required <br/> e.g., Zookeeper, Load Balancers]
 ```
+
+## Consistent Hashing
+
+When you have a cluster of servers (cache nodes, database shards) and need to distribute keys across them, a naive approach like `hash(key) % num_servers` breaks catastrophically when you add or remove a server — almost every key remaps to a different server, invalidating your entire cache or requiring massive data reshuffling.
+
+**Consistent Hashing** solves this by mapping both keys and servers onto a conceptual "ring" (a fixed 0–2³² range). Each server occupies one or more positions on the ring. To find which server holds a key, you hash the key and walk clockwise around the ring until you hit a server node.
+
+```mermaid
+flowchart LR
+    subgraph Ring["Hash Ring (0 → 2³²)"]
+        direction LR
+        A((Server A\n12 o'clock)) --> B((Server B\n4 o'clock))
+        B --> C((Server C\n8 o'clock))
+        C --> A
+    end
+    
+    K1[Key 1\nhashes near 2 o'clock] -->|walks clockwise → hits| B
+    K2[Key 2\nhashes near 6 o'clock] -->|walks clockwise → hits| C
+    K3[Key 3\nhashes near 10 o'clock] -->|walks clockwise → hits| A
+```
+
+**Why Consistent Hashing is Powerful:**
+- When a server is added, **only** the keys between the new node and its predecessor on the ring need to be remapped. All other keys are unaffected.
+- When a server is removed, only that server's keys remap to the next server clockwise. The rest of the ring is stable.
+- **Virtual Nodes:** To ensure even distribution even with heterogeneous hardware, each physical server can occupy multiple positions on the ring (virtual nodes). A more powerful server can have more virtual nodes, absorbing proportionally more traffic.
+
+**Where it appears:**
+- **Distributed caches:** Memcached clusters, Redis Cluster.
+- **Database sharding:** Determining which shard owns a given row.
+- **Load balancing:** Sticky sessions (ensuring the same user always goes to the same server).
+
+---
+
+## Fault Tolerance & Replication
+
+A single machine will eventually fail. Distributed systems achieve resilience through **replication** — keeping multiple copies of data on independent machines so the system survives individual failures.
+
+### Replication Topologies
+
+| Model | Description | Trade-off |
+|:---|:---|:---|
+| **Primary-Replica** | One primary accepts all writes; replicas serve reads | Simple, but primary is a SPOF without failover |
+| **Primary-Primary** | Multiple nodes accept writes; must resolve conflicts | Higher availability, but complex conflict resolution |
+| **Leaderless** | Any node accepts writes; uses quorums for consistency | Maximum availability, eventual consistency |
+
+### Quorums (W + R > N)
+
+In distributed systems with N replicas, you configure:
+- **W** = minimum nodes that must confirm a write
+- **R** = minimum nodes that must respond to a read
+
+**Rule:** `W + R > N` guarantees you will always read at least one node that has the latest write (overlap exists).
+
+| Config | Behavior | Use Case |
+|:---|:---|:---|
+| W=N, R=1 | Strong write consistency, fast reads | Write-once data |
+| W=1, R=N | Fast writes, strong read consistency | Read-heavy systems |
+| W=N/2+1, R=N/2+1 | Balanced consistency | General purpose |
+
+---
+
+## Key Interview Insight on Distributed Systems
+
+> **The hardest problems in distributed systems are not technical — they are definitional.** The question "is this system consistent?" requires you to first define *which consistency model* you are targeting (strong, eventual, read-your-writes, monotonic read, etc.), and *under which failure conditions* (network partition? node crash? message delay?). Interviewers who ask about consistency are really testing whether you know that consistency is a spectrum, not a binary property.
